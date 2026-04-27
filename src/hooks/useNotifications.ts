@@ -4,7 +4,7 @@ import notifee, {
   EventType,
   TriggerType,
 } from '@notifee/react-native';
-import { useAppStore } from '../store/appStore';
+import { useAppStore } from '../store/useAppStore';
 
 interface NotificationPayload {
   title: string;

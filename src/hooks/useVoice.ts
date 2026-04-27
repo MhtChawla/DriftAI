@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { NativeModules, Platform, NativeEventEmitter } from 'react-native';
-import { useAppStore } from '../store/appStore';
+import { useAppStore } from '../store/useAppStore';
 
 const { SpeechRecognizer } = NativeModules;
 

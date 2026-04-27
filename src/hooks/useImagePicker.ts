@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import { useAppStore } from '../store/appStore';
+import { useAppStore } from '../store/useAppStore';
 
 export interface ImagePickerResult {
   uri: string;

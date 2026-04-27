@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { requestMultiple, PERMISSIONS } from 'react-native-permissions';
 import Contacts from 'react-native-contacts';
-import { useAppStore } from '../store/appStore';
+import { useAppStore } from '../store/useAppStore';
 
 export interface Contact {
   recordID: string;

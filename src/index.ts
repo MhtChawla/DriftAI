@@ -1,5 +1,5 @@
 // Store
-export { useAppStore } from './store/appStore';
+export { useAppStore } from './store/useAppStore';
 
 // API
 export { createChatCompletion, getOpenAIModels, clearCache } from './utils/api/openaiClient';
@@ -26,5 +26,5 @@ export { useNotifications } from './hooks/useNotifications';
 export { useShare } from './hooks/useShare';
 
 // Navigation
-export { Stack, navigationTheme, screenOptions } from './navigation/navigationConfig';
-export type { RootStackParamList } from './navigation/navigationConfig';
+export { RootNavigator } from './navigation/RootNavigator';
+export type { RootStackParamList, TabsParamList } from './navigation/RootNavigator';

@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import Share from 'react-native-share';
-import { useAppStore } from '../store/appStore';
+import { useAppStore } from '../store/useAppStore';
 
 interface ShareOptions {
   title?: string;
