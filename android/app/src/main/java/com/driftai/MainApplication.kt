@@ -18,6 +18,7 @@ class MainApplication : Application(), ReactApplication {
           add(SpeechRecognizerPackage())
           add(PhoneCallPackage())
           add(TextToSpeechPackage())
+          add(CalendarPackage())
         },
     )
   }

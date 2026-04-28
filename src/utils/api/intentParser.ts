@@ -31,6 +31,7 @@ export type IntentAction = {
   command?: string;
   subject?: string;
   body?: string;
+  rawInput?: string;
 };
 
 export type IntentParseResult = {
@@ -149,6 +150,24 @@ const normalizeComparable = (value: string) =>
     .trim();
 
 const splitReminderTime = (value: string) => {
+  // "DATE that MESSAGE" — e.g. "11th of may that it's mohit's birthday"
+  // date prefix ends at "that" keyword
+  const dateThat = value.match(/^(.+?)\s+that\s+(.+)$/i);
+  if (dateThat) {
+    const potentialDate = dateThat[1];
+    // only treat as date if it looks like a date (has a month name or ordinal/number)
+    const looksLikeDate = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}(?:st|nd|rd|th)?|tomorrow|today|tonight|next\s+\w+)\b/i.test(potentialDate);
+    if (looksLikeDate) {
+      return { message: cleanValue(dateThat[2]), time: cleanValue(potentialDate) };
+    }
+  }
+
+  // "this day/date that X"
+  const thisDayThat = value.match(/^(?:this\s+(?:day|date|time))\s+that\s+(.+)$/i);
+  if (thisDayThat) {
+    return { message: cleanValue(thisDayThat[1]), time: 'this day' };
+  }
+
   const timeMatch = value.match(/\s+\b(?:at|on|by|tomorrow|today|tonight|next|in)\b.+$/i);
 
   if (timeMatch?.index === undefined) {
@@ -340,33 +359,46 @@ const parseTranslate = (text: string): IntentAction | null => {
 };
 
 const parseReminder = (text: string): IntentAction | null => {
-  const reminder = text.match(
+  const makeAction = (message: string | undefined, time: string | undefined): IntentAction => ({
+    type: 'create_reminder',
+    message,
+    text: message,
+    time,
+    rawInput: text,
+  });
+
+  // "remind me to X", "set/create/add a reminder to X"
+  const toReminder = text.match(
     /^(?:remind me to|set (?:a\s+)?reminder to|create (?:a\s+)?reminder to|add (?:a\s+)?reminder to)\s+(.+)$/i,
   );
+  if (toReminder) {
+    const { message, time } = splitReminderTime(toReminder[1]);
+    return makeAction(message, time);
+  }
 
-  if (reminder) {
-    const { message, time } = splitReminderTime(reminder[1]);
+  // "remind me on/about/that X", "set/create/add a reminder on/about/that/for X"
+  const onReminder = text.match(
+    /^(?:remind me|set (?:a\s+)?reminder|create (?:a\s+)?reminder|add (?:a\s+)?reminder)\s+(?:on|about|that|for)\s+(.+)$/i,
+  );
+  if (onReminder) {
+    const { message, time } = splitReminderTime(onReminder[1]);
+    return makeAction(message, time);
+  }
 
-    return {
-      type: 'create_reminder',
-      message,
-      text: message,
-      time,
-    };
+  // bare "reminder for/about/that X" or "reminder on DATE that X"
+  const bareReminder = text.match(/^reminder\s+(?:for|about|that|on)\s+(.+)$/i);
+  if (bareReminder) {
+    const { message, time } = splitReminderTime(bareReminder[1]);
+    return makeAction(message, time);
   }
 
   const note = text.match(/^(?:note|make (?:a\s+)?note|create (?:a\s+)?note|remember)\s+(?:that\s+)?(.+)$/i);
   const noteText = cleanValue(note?.[1]);
-
-  if (!noteText) {
-    return null;
+  if (noteText) {
+    return makeAction(noteText, undefined);
   }
 
-  return {
-    type: 'create_reminder',
-    message: noteText,
-    text: noteText,
-  };
+  return null;
 };
 
 const parseCall = (text: string): IntentAction | null => {
@@ -611,5 +643,8 @@ export const parseVoiceIntent = async (input: string): Promise<IntentParseResult
     getOpenAIKey(),
   );
 
-  return parseIntentJson(getAssistantContent(response.choices[0]?.message.content));
+  const result = parseIntentJson(getAssistantContent(response.choices[0]?.message.content));
+  // stamp rawInput on every action so handlers always have the original user text
+  result.actions.forEach(a => { a.rawInput = text; });
+  return result;
 };

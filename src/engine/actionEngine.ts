@@ -210,21 +210,169 @@ const handleOpenApp = async (action: IntentAction) => {
   return result(action, `Opened ${app}`);
 };
 
-const handleReminder = async (action: IntentAction) => {
-  const message = action.message ?? action.text;
+type ReminderCalendar = {
+  kind: 'calendar';
+  title: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:MM, optional
+  allDay: boolean;
+};
 
-  if (!message) {
+type ReminderOnce = {
+  kind: 'once';
+  title: string;
+  delayMs: number;
+};
+
+type ReminderRecurring = {
+  kind: 'recurring';
+  title: string;
+  intervalMs: number;
+  count: number;
+  startDelayMs: number;
+};
+
+type ReminderPlan = ReminderCalendar | ReminderOnce | ReminderRecurring;
+
+const classifyReminder = async (rawText: string, rawTime?: string): Promise<ReminderPlan> => {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const currentYear = now.getFullYear();
+  const tzOffsetMin = -now.getTimezoneOffset();
+  const tzSign = tzOffsetMin >= 0 ? '+' : '-';
+  const tzLabel = `UTC${tzSign}${String(Math.floor(Math.abs(tzOffsetMin) / 60)).padStart(2, '0')}:${String(Math.abs(tzOffsetMin) % 60).padStart(2, '0')}`;
+
+  const systemPrompt = `You are a reminder classifier. Given a reminder request, return a JSON object describing the best way to handle it.
+
+Today is ${today} (year ${currentYear}). Current local time is ${currentTime} timezone ${tzLabel}.
+
+IMPORTANT: When no year is mentioned, ALWAYS use ${currentYear} or later — never a past year. If the date has already passed this year, use ${currentYear + 1}.
+
+Rules:
+- If the reminder is tied to a specific date or calendar event (birthday, meeting, anniversary, deadline) → kind: "calendar"
+- If it's a one-time reminder after a delay (in 5 minutes, in 2 hours, tomorrow morning) → kind: "once"
+- If it's recurring/habitual (drink water, take medicine, exercise, every X hours) → kind: "recurring"
+
+Return ONLY valid JSON matching one of these schemas:
+
+For calendar:
+{ "kind": "calendar", "title": string, "date": "YYYY-MM-DD", "time": "HH:MM" | null, "allDay": boolean }
+
+For once:
+{ "kind": "once", "title": string, "delayMs": number }
+
+For recurring:
+{ "kind": "recurring", "title": string, "intervalMs": number, "count": number, "startDelayMs": number }
+
+Rules for recurring: intervalMs is milliseconds between each notification, count is total number of notifications to schedule, startDelayMs is delay before the first one (0 if should start now).
+
+Be smart — "drink water" with no time specified means every 2 hours for 8 hours (4 notifications). "remind me to drink water every hour for 3 hours" means 3 notifications 1 hour apart.`;
+
+  const response = await createChatCompletion(
+    {
+      model: 'gpt-4o-mini',
+      temperature: 0,
+      max_tokens: 200,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: rawTime ? `${rawText} (time context: ${rawTime})` : rawText },
+      ],
+    },
+    OPENAI_API_KEY,
+  );
+
+  const plan = JSON.parse(response.choices[0]?.message.content ?? '{}') as ReminderPlan;
+
+  if (!plan.kind) {
+    throw new Error('Reminder classifier returned unexpected response');
+  }
+
+  return plan;
+};
+
+const handleReminder = async (action: IntentAction) => {
+  // rawInput is the full original user utterance — always available, most reliable
+  const rawText = action.rawInput ?? action.message ?? action.text ?? action.body ?? action.query;
+
+  if (!rawText) {
     throw new Error('No reminder text provided');
   }
 
-  const timestamp = parseReminderTimestamp(action.time);
-  await createReminderNotification(message, timestamp);
+  const plan = await classifyReminder(rawText, action.time);
+
+  switch (plan.kind) {
+    case 'calendar':
+      return handleCalendarReminder(action, plan);
+    case 'once':
+      return handleOnceReminder(action, plan);
+    case 'recurring':
+      return handleRecurringReminder(action, plan);
+  }
+};
+
+const handleCalendarReminder = async (action: IntentAction, plan: ReminderCalendar) => {
+  const [year, month, day] = plan.date.split('-').map(Number);
+  const startMs = plan.time
+    ? (() => {
+        const [hour, minute] = plan.time!.split(':').map(Number);
+        return new Date(year, month - 1, day, hour, minute, 0).getTime();
+      })()
+    : new Date(year, month - 1, day, 0, 0, 0).getTime();
+  const endMs = startMs + (plan.allDay ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000);
+
+  console.log('[CalendarReminder] plan:', JSON.stringify(plan));
+  console.log('[CalendarReminder] startMs:', startMs, '→', new Date(startMs).toString());
+  console.log('[CalendarReminder] endMs:', endMs, '→', new Date(endMs).toString());
+
+  if (Platform.OS === 'ios') {
+    await Linking.openURL(`calshow:${Math.floor(startMs / 1000)}`);
+  } else {
+    await NativeModules.CalendarModule.createEvent(
+      plan.title,
+      startMs,
+      endMs,
+      plan.allDay,
+    );
+  }
+
+  return result(action, `Added "${plan.title}" to your calendar on ${plan.date}`);
+};
+
+const handleOnceReminder = async (action: IntentAction, plan: ReminderOnce) => {
+  const timestamp = Date.now() + Math.max(plan.delayMs, 10_000);
+  await createReminderNotification(plan.title, timestamp);
+
+  const fireAt = new Date(timestamp);
+  return result(action, `Reminder set: "${plan.title}" at ${fireAt.toLocaleTimeString()}`);
+};
+
+const handleRecurringReminder = async (action: IntentAction, plan: ReminderRecurring) => {
+  await ensureNotifeeChannel();
+
+  const MIN_DELAY = 10_000; // notifee rejects timestamps less than ~5s in the future
+  const startDelay = Math.max(plan.startDelayMs, MIN_DELAY);
+
+  for (let i = 0; i < plan.count; i++) {
+    const timestamp = Date.now() + startDelay + i * plan.intervalMs;
+    await notifee.createTriggerNotification(
+      {
+        title: 'DriftAI Reminder',
+        body: plan.title,
+        android: { channelId: 'reminders', smallIcon: 'ic_launcher' },
+        data: { source: 'action_engine' },
+      },
+      { type: TriggerType.TIMESTAMP, timestamp },
+    );
+  }
+
+  const intervalMin = Math.round(plan.intervalMs / 60000);
+  const intervalLabel = intervalMin >= 60 ? `${Math.round(intervalMin / 60)}h` : `${intervalMin}m`;
 
   return result(
     action,
-    timestamp
-      ? `Scheduled reminder for ${new Date(timestamp).toLocaleString()}`
-      : 'Created reminder',
+    `Set ${plan.count} reminder${plan.count > 1 ? 's' : ''} every ${intervalLabel}: "${plan.title}"`,
   );
 };
 
@@ -323,16 +471,20 @@ const handleSettingCommand = async (detail: string) => {
   await Linking.openSettings();
 };
 
-const createReminderNotification = async (
-  body: string,
-  timestamp: number | null,
-) => {
+const ensureNotifeeChannel = async () => {
   await notifee.requestPermission();
   await notifee.createChannel({
     id: 'reminders',
     name: 'Reminders',
     importance: AndroidImportance.DEFAULT,
   });
+};
+
+const createReminderNotification = async (
+  body: string,
+  timestamp: number | null,
+) => {
+  await ensureNotifeeChannel();
 
   const notification = {
     title: 'DriftAI Reminder',
@@ -500,57 +652,6 @@ const APP_URLS: Record<string, string[]> = {
   browser: ['https://www.google.com/'],
 };
 
-const parseReminderTimestamp = (time?: string) => {
-  const normalized = normalizeComparable(time);
-
-  if (!normalized) {
-    return null;
-  }
-
-  const durationTimestamp = parseDurationTimestamp(normalized);
-
-  if (durationTimestamp) {
-    return durationTimestamp;
-  }
-
-  const date = new Date();
-
-  if (normalized.includes('tomorrow')) {
-    date.setDate(date.getDate() + 1);
-  }
-
-  if (normalized.includes('tonight')) {
-    date.setHours(20, 0, 0, 0);
-  }
-
-  const timeMatch = normalized.match(
-    /\b(?:at|by)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/,
-  );
-
-  if (timeMatch) {
-    let hours = Number(timeMatch[1]);
-    const minutes = Number(timeMatch[2] ?? 0);
-    const meridiem = timeMatch[3];
-
-    if (meridiem === 'pm' && hours < 12) {
-      hours += 12;
-    }
-
-    if (meridiem === 'am' && hours === 12) {
-      hours = 0;
-    }
-
-    date.setHours(hours, minutes, 0, 0);
-  } else if (normalized.includes('today')) {
-    return null;
-  }
-
-  if (date.getTime() <= Date.now()) {
-    date.setDate(date.getDate() + 1);
-  }
-
-  return date.getTime();
-};
 
 const parseDurationTimestamp = (value: string) => {
   const match = normalizeComparable(value).match(
