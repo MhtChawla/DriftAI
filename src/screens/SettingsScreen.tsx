@@ -4,6 +4,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-nati
 import LinearGradient from 'react-native-linear-gradient';
 import { ChevronRight } from 'lucide-react-native';
 import { useThemeTokens } from '../hooks/useThemeTokens';
+import { usePermissions } from '../hooks/usePermissions';
 import { useAppStore, type ResponseStyle } from '../store/useAppStore';
 import { fonts, tokens } from '../theme/tokens';
 import { MonoLabel } from '../components/MonoLabel';
@@ -19,8 +20,9 @@ export function SettingsScreen(_: Props) {
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const perms = useAppStore((s) => s.permissions);
-  const setPermission = useAppStore((s) => s.setPermission);
+  const { requestMic, requestContacts, requestNotifications, requestMedia } = usePermissions();
   const responseStyle = useAppStore((s) => s.responseStyle);
+
   const setResponseStyle = useAppStore((s) => s.setResponseStyle);
   const language = useAppStore((s) => s.language);
   const clearMessages = useAppStore((s) => s.clearMessages);
@@ -67,9 +69,10 @@ export function SettingsScreen(_: Props) {
         </LinearGradient>
 
         <Section label="PERMISSIONS">
-          <ToggleRow label="Microphone" sub="Required for voice input" value={perms.mic} onChange={(v) => setPermission('mic', v)} />
-          <ToggleRow label="Contacts" sub="To send messages and place calls" value={perms.contacts} onChange={(v) => setPermission('contacts', v)} />
-          <ToggleRow label="Notifications" sub="Reminders and reply suggestions" value={perms.notifications} onChange={(v) => setPermission('notifications', v)} isLast />
+          <ToggleRow label="Microphone" sub="Required for voice input" value={perms.mic} onChange={requestMic} />
+          <ToggleRow label="Contacts" sub="To send messages and place calls" value={perms.contacts} onChange={requestContacts} />
+          <ToggleRow label="Notifications" sub="Reminders and reply suggestions" value={perms.notifications} onChange={requestNotifications} />
+          <ToggleRow label="Media & Storage" sub="Access photos and files" value={perms.media} onChange={requestMedia} isLast />
         </Section>
 
         <Section label="AI">

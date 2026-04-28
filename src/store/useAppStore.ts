@@ -27,6 +27,7 @@ export type Permissions = {
   mic: boolean;
   contacts: boolean;
   notifications: boolean;
+  media: boolean;
 };
 
 export type AppState = {
@@ -128,7 +129,7 @@ export const useAppStore = create<AppState>((set) => ({
   vizStyle: 'rings',
   accentHue: 255,
 
-  permissions: { mic: true, contacts: true, notifications: false },
+  permissions: { mic: true, contacts: true, notifications: false, media: false },
   responseStyle: 'balanced',
   language: 'English (US)',
 

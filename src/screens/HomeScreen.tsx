@@ -87,17 +87,20 @@ export function HomeScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
       >
         {/* greeting */}
-        <View style={{ marginTop: 12 }}>
+        <View style={{ marginTop: 12, }}>
           <MonoLabel>{today}</MonoLabel>
-          <Text
-            style={[
-              styles.greeting,
-              { color: t.text, fontFamily: fonts.sans },
-            ]}
-          >
-            {greeting},{' '}
-            <GradientText style={styles.greeting}>{name}</GradientText>.
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+            <Text
+              style={[
+                styles.greeting,
+                { color: t.text, fontFamily: fonts.sans, lineHeight: 50 },
+              ]}
+            >
+              {greeting},{' '}
+            </Text>
+            <GradientText style={[styles.greeting, { height: 50 }]}>{name}</GradientText>.
+
+          </View>
           <Text
             style={[styles.subtitle, { color: t.textDim, fontFamily: fonts.sans }]}
           >

@@ -35,6 +35,12 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Drif needs microphone access for voice input.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Drif needs contacts access to send messages and place calls.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Drif needs photo library access to share and attach media.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

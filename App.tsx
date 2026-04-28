@@ -5,9 +5,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { useAppStore } from './src/store/useAppStore';
+import { useStartupPermissions } from './src/hooks/useStartupPermissions';
 
 export default function App() {
   const theme = useAppStore((s) => s.theme);
+  useStartupPermissions();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
