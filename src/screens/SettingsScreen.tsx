@@ -153,7 +153,7 @@ export function SettingsScreen(_: Props) {
             letterSpacing: 1,
           }}
         >
-          DRIFAI · 0xDRIF · MADE FOR VOICE
+          DRIFTAI · 0xDRIFT · MADE FOR VOICE
         </Text>
       </ScrollView>
     </View>

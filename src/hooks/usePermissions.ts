@@ -5,7 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 function showSettingsAlert(permissionName: string, usage: string) {
   Alert.alert(
     `${permissionName} Blocked`,
-    `Drif needs ${permissionName.toLowerCase()} access for ${usage}. Enable it in your device settings.`,
+    `Drift needs ${permissionName.toLowerCase()} access for ${usage}. Enable it in your device settings.`,
     [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Open Settings', onPress: () => Linking.openSettings() },
@@ -27,7 +27,7 @@ export function usePermissions() {
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
           {
             title: 'Microphone Permission',
-            message: 'Drif needs microphone access for voice input.',
+            message: 'Drift needs microphone access for voice input.',
             buttonNeutral: 'Ask Me Later',
             buttonNegative: 'Cancel',
             buttonPositive: 'Allow',
@@ -63,7 +63,7 @@ export function usePermissions() {
           PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
           {
             title: 'Contacts Permission',
-            message: 'Drif needs contacts access to send messages and place calls.',
+            message: 'Drift needs contacts access to send messages and place calls.',
             buttonNeutral: 'Ask Me Later',
             buttonNegative: 'Cancel',
             buttonPositive: 'Allow',
@@ -77,7 +77,7 @@ export function usePermissions() {
       } else {
         Alert.alert(
           'Contacts',
-          'Enable contacts access in Settings > DriftAI.',
+          'Enable contacts access in Settings > tAI.',
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Open Settings', onPress: () => Linking.openSettings() },
@@ -108,7 +108,7 @@ export function usePermissions() {
         const permsToRequest = [
           PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
           PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-        ].filter(Boolean) as string[];
+        ];
 
         const results = await PermissionsAndroid.requestMultiple(permsToRequest);
         const granted =

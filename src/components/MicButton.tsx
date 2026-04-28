@@ -21,12 +21,23 @@ export const MicButton = React.memo(function MicButton({ state, viz, onTap }: Pr
   const active = state !== 'idle';
 
   return (
-    <Pressable onPress={onTap} style={styles.wrap}>
-      {active && viz === 'rings' && <Rings />}
-      {active && viz === 'orb' && <Orb />}
-      {active && viz === 'bars' && <Bars />}
+    <View style={styles.container}>
+      <Pressable
+        onPress={() => {
+          console.log('Mic pressed:', { isListening: active });
+          onTap();
+        }}
+        hitSlop={60}
+        style={({ pressed }) => [
+          styles.wrap,
+          pressed && { opacity: 0.8 }
+        ]}
+      >
+        {active && viz === 'rings' && <Rings />}
+        {active && viz === 'orb' && <Orb />}
+        {active && viz === 'bars' && <Bars />}
 
-      <View style={[styles.coreShadow, active && styles.coreShadowActive]}>
+        <View pointerEvents="box-none" style={[styles.coreShadow, active && styles.coreShadowActive]}>
         {active ? (
           <LinearGradient
             colors={[tokens.accent1, tokens.accent2]}
@@ -52,6 +63,7 @@ export const MicButton = React.memo(function MicButton({ state, viz, onTap }: Pr
         )}
       </View>
     </Pressable>
+    </View>
   );
 });
 
@@ -95,9 +107,15 @@ const Bars = React.memo(function Bars() {
 });
 
 const styles = StyleSheet.create({
+  container: {
+    width: SIZE + 80,
+    height: SIZE + 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   wrap: {
-    width: SIZE,
-    height: SIZE,
+    width: SIZE + 80,
+    height: SIZE + 80,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -7,16 +7,14 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { MessageCircle } from 'lucide-react-native';
 import { useThemeTokens } from '../hooks/useThemeTokens';
 import { useAppStore } from '../store/useAppStore';
-import { useMicCycle, type MicSample } from '../hooks/useMicCycle';
+import { useVoice } from '../hooks/useVoice';
 import { fonts, tokens } from '../theme/tokens';
 import { MonoLabel } from '../components/MonoLabel';
 import { GradientText } from '../components/GradientText';
 import { MicButton } from '../components/MicButton';
-import { Chip } from '../components/Chip';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -27,30 +25,14 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-const QUICK_ACTIONS: Record<string, MicSample> = {
-  'Send message': {
-    transcript: 'Send Anya a message — running 10 min late.',
-    response: 'Sending to Anya: "Running 10 min late." Send it?',
-  },
-  'Post on Instagram': {
-    transcript: 'Post the studio shot from this morning to Instagram.',
-    response: 'Drafting post — 1 image, caption suggested. Review?',
-  },
-  Translate: {
-    transcript: 'Translate "thank you for everything" to French.',
-    response: 'Merci pour tout — formal: « Merci pour tout cela ».',
-  },
-  'Call contact': {
-    transcript: 'Call mom on speakerphone.',
-    response: 'Calling Mom on speakerphone…',
-  },
-};
 
 export function HomeScreen({ navigation }: Props) {
   const t = useThemeTokens();
   const name = useAppStore((s) => s.user.name);
   const vizStyle = useAppStore((s) => s.vizStyle);
-  const { state, transcript, response, tap, runSample } = useMicCycle();
+  const { isListening, transcript, startListening, stopListening } = useVoice();
+
+  const state = isListening ? 'listening' : 'idle';
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -110,10 +92,20 @@ export function HomeScreen({ navigation }: Props) {
 
         {/* mic */}
         <View style={styles.micWrap}>
-          <MicButton state={state} viz={vizStyle} onTap={tap} />
+          <MicButton
+            state={state}
+            viz={vizStyle}
+            onTap={() => {
+              if (isListening) {
+                stopListening();
+              } else {
+                startListening();
+              }
+            }}
+          />
         </View>
 
-        {/* transcript / response */}
+        {/* transcript */}
         <View style={styles.tBlock}>
           {!!transcript && (
             <View
@@ -126,46 +118,14 @@ export function HomeScreen({ navigation }: Props) {
               <Text style={[styles.cardText, { color: t.text }]}>{transcript}</Text>
             </View>
           )}
-          {!!response && (
-            <LinearGradient
-              colors={['rgba(91,140,255,0.10)', 'rgba(168,85,247,0.10)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[
-                styles.card,
-                { borderColor: 'rgba(91,140,255,0.3)', borderWidth: 1 },
-              ]}
-            >
-              <MonoLabel style={{ fontSize: 9.5, color: tokens.accent1 }}>
-                DRIFT · REPLY
-              </MonoLabel>
-              <Text style={[styles.cardText, { color: t.text }]}>{response}</Text>
-            </LinearGradient>
-          )}
-          {!transcript && !response && state === 'idle' && (
+          {!transcript && state === 'idle' && (
             <View style={{ alignItems: 'center', opacity: 0.5 }}>
               <MonoLabel style={{ fontSize: 10 }}>
-                TAP · HOLD · OR SAY "HEY DRIF"
+                TAP TO START LISTENING
               </MonoLabel>
             </View>
           )}
         </View>
-
-        {/* chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingRight: 24 }}
-          style={{ marginTop: 4 }}
-        >
-          {Object.keys(QUICK_ACTIONS).map((label) => (
-            <Chip
-              key={label}
-              label={label}
-              onPress={() => state === 'idle' && runSample(QUICK_ACTIONS[label])}
-            />
-          ))}
-        </ScrollView>
       </ScrollView>
 
       {/* floating chat FAB */}

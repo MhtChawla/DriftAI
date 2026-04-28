@@ -116,7 +116,7 @@ export function ChatScreen({ navigation }: Props) {
             value={input}
             onChangeText={setInput}
             onSubmitEditing={send}
-            placeholder="Message Drif…"
+            placeholder="Message Drift…"
             placeholderTextColor={t.textFaint}
             style={[
               styles.input,
