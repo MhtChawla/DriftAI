@@ -16,32 +16,53 @@ import { fonts, tokens } from '../theme/tokens';
 import { MonoLabel } from '../components/MonoLabel';
 import { GradientText } from '../components/GradientText';
 import { MicButton } from '../components/MicButton';
-import { parseVoiceIntent, type IntentParseResult } from '../utils/api/intentParser';
+import {
+  parseVoiceIntent,
+  type IntentParseResult,
+} from '../utils/api/intentParser';
+import {
+  executeActions,
+  type ActionExecutionResult,
+} from '../engine/actionEngine';
 import type { MicState } from '../hooks/useMicCycle';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList, TabsParamList } from '../navigation/RootNavigator';
+import type {
+  RootStackParamList,
+  TabsParamList,
+} from '../navigation/RootNavigator';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<TabsParamList, 'Voice'>,
   NativeStackScreenProps<RootStackParamList>
 >;
 
-
 export function HomeScreen({ navigation }: Props) {
   const t = useThemeTokens();
-  const name = useAppStore((s) => s.user.name);
-  const vizStyle = useAppStore((s) => s.vizStyle);
+  const name = useAppStore(s => s.user.name);
+  const vizStyle = useAppStore(s => s.vizStyle);
   const { isListening, transcript, startListening, stopListening } = useVoice();
-  const [intentResult, setIntentResult] = useState<IntentParseResult | null>(null);
+  const [intentResult, setIntentResult] = useState<IntentParseResult | null>(
+    null,
+  );
   const [intentError, setIntentError] = useState<string | null>(null);
   const [isParsingIntent, setIsParsingIntent] = useState(false);
+  const [actionResults, setActionResults] = useState<
+    ActionExecutionResult[] | null
+  >(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isExecutingActions, setIsExecutingActions] = useState(false);
   const parsedTranscriptRef = useRef('');
   const requestIdRef = useRef(0);
 
   const trimmedTranscript = transcript.trim();
-  const state: MicState = isParsingIntent ? 'processing' : isListening ? 'listening' : 'idle';
+  const state: MicState =
+    isParsingIntent || isExecutingActions
+      ? 'processing'
+      : isListening
+      ? 'listening'
+      : 'idle';
 
   useEffect(() => {
     if (isListening) {
@@ -50,10 +71,16 @@ export function HomeScreen({ navigation }: Props) {
       setIntentResult(null);
       setIntentError(null);
       setIsParsingIntent(false);
+      setActionResults(null);
+      setActionError(null);
+      setIsExecutingActions(false);
       return;
     }
 
-    if (!trimmedTranscript || parsedTranscriptRef.current === trimmedTranscript) {
+    if (
+      !trimmedTranscript ||
+      parsedTranscriptRef.current === trimmedTranscript
+    ) {
       return;
     }
 
@@ -64,30 +91,74 @@ export function HomeScreen({ navigation }: Props) {
     setIsParsingIntent(true);
     setIntentResult(null);
     setIntentError(null);
+    setActionResults(null);
+    setActionError(null);
+    setIsExecutingActions(false);
 
     let didCancel = false;
 
-    parseVoiceIntent(trimmedTranscript)
-      .then((result) => {
-        if (!didCancel && requestIdRef.current === requestId) {
-          setIntentResult(result);
+    const runVoiceCommand = async () => {
+      let phase: 'parse' | 'execute' = 'parse';
+
+      try {
+        const result = await parseVoiceIntent(trimmedTranscript);
+
+        if (didCancel || requestIdRef.current !== requestId) {
+          return;
         }
-      })
-      .catch((error: any) => {
-        if (!didCancel && requestIdRef.current === requestId) {
+
+        setIntentResult(result);
+        setIsParsingIntent(false);
+
+        if (!result.actions.length) {
+          setActionResults([]);
+          return;
+        }
+
+        phase = 'execute';
+        setIsExecutingActions(true);
+
+        if (typeof executeActions !== 'function') {
+          throw new Error('executeActions module not loaded — restart Metro bundler');
+        }
+
+        const executionResults = await executeActions(result.actions);
+
+        if (didCancel || requestIdRef.current !== requestId) {
+          return;
+        }
+
+        setActionResults(executionResults);
+
+        if (result.actions.some(action => action.type === 'chat')) {
+          navigation.navigate('Chat');
+        }
+      } catch (error: any) {
+        if (didCancel || requestIdRef.current !== requestId) {
+          return;
+        }
+
+        if (phase === 'parse') {
           setIntentError(error?.message || 'Failed to parse intent');
+        } else {
+          const detail = error?.message || String(error) || 'Failed to execute action';
+          console.error('[ActionEngine]', error);
+          setActionError(detail);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!didCancel && requestIdRef.current === requestId) {
           setIsParsingIntent(false);
+          setIsExecutingActions(false);
         }
-      });
+      }
+    };
+
+    runVoiceCommand();
 
     return () => {
       didCancel = true;
     };
-  }, [isListening, trimmedTranscript]);
+  }, [isListening, navigation, trimmedTranscript]);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -100,7 +171,11 @@ export function HomeScreen({ navigation }: Props) {
   const today = useMemo(
     () =>
       new Date()
-        .toLocaleDateString('en', { weekday: 'long', month: 'short', day: 'numeric' })
+        .toLocaleDateString('en', {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric',
+        })
         .toUpperCase(),
     [],
   );
@@ -124,9 +199,9 @@ export function HomeScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
       >
         {/* greeting */}
-        <View style={{ marginTop: 12, }}>
+        <View style={{ marginTop: 12 }}>
           <MonoLabel>{today}</MonoLabel>
-          <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
             <Text
               style={[
                 styles.greeting,
@@ -135,11 +210,16 @@ export function HomeScreen({ navigation }: Props) {
             >
               {greeting},{' '}
             </Text>
-            <GradientText style={[styles.greeting, { height: 50 }]}>{name}</GradientText>.
-
+            <GradientText style={[styles.greeting, { height: 50 }]}>
+              {name}
+            </GradientText>
+            .
           </View>
           <Text
-            style={[styles.subtitle, { color: t.textDim, fontFamily: fonts.sans }]}
+            style={[
+              styles.subtitle,
+              { color: t.textDim, fontFamily: fonts.sans },
+            ]}
           >
             What can I help you with?
           </Text>
@@ -151,7 +231,7 @@ export function HomeScreen({ navigation }: Props) {
             state={state}
             viz={vizStyle}
             onTap={() => {
-              if (isParsingIntent) {
+              if (isParsingIntent || isExecutingActions) {
                 return;
               }
 
@@ -176,7 +256,9 @@ export function HomeScreen({ navigation }: Props) {
               <MonoLabel style={{ fontSize: 9.5 }}>
                 {isListening ? 'YOU · TRANSCRIBING' : 'YOU · TRANSCRIPT'}
               </MonoLabel>
-              <Text style={[styles.cardText, { color: t.text }]}>{transcript}</Text>
+              <Text style={[styles.cardText, { color: t.text }]}>
+                {transcript}
+              </Text>
             </View>
           )}
           {(isParsingIntent || intentResult || intentError) && (
@@ -187,14 +269,52 @@ export function HomeScreen({ navigation }: Props) {
               ]}
             >
               <View style={styles.cardHeader}>
-                <MonoLabel style={{ fontSize: 9.5 }}>AI · INTENT JSON</MonoLabel>
-                {isParsingIntent && <ActivityIndicator size="small" color={tokens.accent1} />}
+                <MonoLabel style={{ fontSize: 9.5 }}>
+                  AI · INTENT JSON
+                </MonoLabel>
+                {isParsingIntent && (
+                  <ActivityIndicator size="small" color={tokens.accent1} />
+                )}
               </View>
               {intentError ? (
-                <Text style={[styles.cardText, { color: tokens.danger }]}>{intentError}</Text>
+                <Text style={[styles.cardText, { color: tokens.danger }]}>
+                  {intentError}
+                </Text>
               ) : (
                 <Text style={[styles.jsonText, { color: t.text }]}>
-                  {intentResult ? JSON.stringify(intentResult, null, 2) : 'Parsing...'}
+                  {intentResult
+                    ? JSON.stringify(intentResult, null, 2)
+                    : 'Parsing...'}
+                </Text>
+              )}
+            </View>
+          )}
+          {(isExecutingActions || actionResults || actionError) && (
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: t.surface, borderColor: t.border },
+              ]}
+            >
+              <View style={styles.cardHeader}>
+                <MonoLabel style={{ fontSize: 9.5 }}>
+                  AI · ACTION STATUS
+                </MonoLabel>
+                {isExecutingActions && (
+                  <ActivityIndicator size="small" color={tokens.accent1} />
+                )}
+              </View>
+              {actionError ? (
+                <Text style={[styles.cardText, { color: tokens.danger }]}>
+                  {actionError}
+                </Text>
+              ) : (
+                <Text style={[styles.cardText, { color: t.text }]}>
+                  {actionResults
+                    ? actionResults.length
+                      ? actionResults.map(result => result.message).join('\n')
+                      : 'No executable actions found'
+                    : 'Executing...'}
                 </Text>
               )}
             </View>
