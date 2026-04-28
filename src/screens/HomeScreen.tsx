@@ -1,6 +1,7 @@
 // src/screens/HomeScreen.tsx
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   ScrollView,
@@ -15,6 +16,8 @@ import { fonts, tokens } from '../theme/tokens';
 import { MonoLabel } from '../components/MonoLabel';
 import { GradientText } from '../components/GradientText';
 import { MicButton } from '../components/MicButton';
+import { parseVoiceIntent, type IntentParseResult } from '../utils/api/intentParser';
+import type { MicState } from '../hooks/useMicCycle';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -31,8 +34,60 @@ export function HomeScreen({ navigation }: Props) {
   const name = useAppStore((s) => s.user.name);
   const vizStyle = useAppStore((s) => s.vizStyle);
   const { isListening, transcript, startListening, stopListening } = useVoice();
+  const [intentResult, setIntentResult] = useState<IntentParseResult | null>(null);
+  const [intentError, setIntentError] = useState<string | null>(null);
+  const [isParsingIntent, setIsParsingIntent] = useState(false);
+  const parsedTranscriptRef = useRef('');
+  const requestIdRef = useRef(0);
 
-  const state = isListening ? 'listening' : 'idle';
+  const trimmedTranscript = transcript.trim();
+  const state: MicState = isParsingIntent ? 'processing' : isListening ? 'listening' : 'idle';
+
+  useEffect(() => {
+    if (isListening) {
+      requestIdRef.current += 1;
+      parsedTranscriptRef.current = '';
+      setIntentResult(null);
+      setIntentError(null);
+      setIsParsingIntent(false);
+      return;
+    }
+
+    if (!trimmedTranscript || parsedTranscriptRef.current === trimmedTranscript) {
+      return;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    parsedTranscriptRef.current = trimmedTranscript;
+
+    setIsParsingIntent(true);
+    setIntentResult(null);
+    setIntentError(null);
+
+    let didCancel = false;
+
+    parseVoiceIntent(trimmedTranscript)
+      .then((result) => {
+        if (!didCancel && requestIdRef.current === requestId) {
+          setIntentResult(result);
+        }
+      })
+      .catch((error: any) => {
+        if (!didCancel && requestIdRef.current === requestId) {
+          setIntentError(error?.message || 'Failed to parse intent');
+        }
+      })
+      .finally(() => {
+        if (!didCancel && requestIdRef.current === requestId) {
+          setIsParsingIntent(false);
+        }
+      });
+
+    return () => {
+      didCancel = true;
+    };
+  }, [isListening, trimmedTranscript]);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -96,6 +151,10 @@ export function HomeScreen({ navigation }: Props) {
             state={state}
             viz={vizStyle}
             onTap={() => {
+              if (isParsingIntent) {
+                return;
+              }
+
               if (isListening) {
                 stopListening();
               } else {
@@ -114,8 +173,30 @@ export function HomeScreen({ navigation }: Props) {
                 { backgroundColor: t.surface, borderColor: t.border },
               ]}
             >
-              <MonoLabel style={{ fontSize: 9.5 }}>YOU · TRANSCRIBING</MonoLabel>
+              <MonoLabel style={{ fontSize: 9.5 }}>
+                {isListening ? 'YOU · TRANSCRIBING' : 'YOU · TRANSCRIPT'}
+              </MonoLabel>
               <Text style={[styles.cardText, { color: t.text }]}>{transcript}</Text>
+            </View>
+          )}
+          {(isParsingIntent || intentResult || intentError) && (
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: t.surface, borderColor: t.border },
+              ]}
+            >
+              <View style={styles.cardHeader}>
+                <MonoLabel style={{ fontSize: 9.5 }}>AI · INTENT JSON</MonoLabel>
+                {isParsingIntent && <ActivityIndicator size="small" color={tokens.accent1} />}
+              </View>
+              {intentError ? (
+                <Text style={[styles.cardText, { color: tokens.danger }]}>{intentError}</Text>
+              ) : (
+                <Text style={[styles.jsonText, { color: t.text }]}>
+                  {intentResult ? JSON.stringify(intentResult, null, 2) : 'Parsing...'}
+                </Text>
+              )}
             </View>
           )}
           {!transcript && state === 'idle' && (
@@ -178,10 +259,20 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 4,
   },
+  cardHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
   cardText: {
     fontSize: 15,
     letterSpacing: -0.2,
     lineHeight: 21,
+  },
+  jsonText: {
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    lineHeight: 18,
   },
   fab: {
     position: 'absolute',
