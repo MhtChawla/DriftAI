@@ -7,10 +7,13 @@
   E.g.
   Send Sahil a happy birthday text -> it understand your context, fetches contact & draft a birthday wish to Sahil
 
-## 2. Email Draft
+## 2. Email Draft ✅
 
 - Generate subject + body via LLM
 - Open Gmail with prefilled draft
+  E.g.
+  Draft email to wish Mohit Happy Birthday -> it drafts a sweet birthday wish in body + regards at end, subject & mail to (if email is found in contacts), opens gmail app & ready to send!
+  Draft email for leave on 5th may as going for a family trip -> it writes a leave email with details & raeson, + regards at end, subject & mail to (if email is found in contacts), opens gmail app & ready to send!
 
 ## 3. Instagram Smart Post
 

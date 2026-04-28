@@ -116,16 +116,61 @@ const handleCall = async ({ contact, type }: IntentAction) => {
   return { type, message: `Calling ${contact ?? dialable}` };
 };
 
+const generateEmailContent = async (
+  rawInput: string,
+  recipientName: string | undefined,
+): Promise<{ subject: string; body: string }> => {
+  const response = await createChatCompletion(
+    {
+      model: 'gpt-4o-mini',
+      temperature: 0.7,
+      max_tokens: 400,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `You are an email drafting assistant. The user will describe their intent in casual spoken language — your job is to interpret the context and write a proper, professional email from it. Never copy the user's words verbatim into the email body.
+Return ONLY valid JSON with this schema: { "subject": string, "body": string }
+- subject: concise, relevant subject line
+- body: a well-drafted email body (2-4 sentences) that captures the intent professionally. Address the recipient by name if provided. Always end with:\n\nBest Regards,\n${useAppStore.getState().user.name}`,
+        },
+        {
+          role: 'user',
+          content: recipientName
+            ? `Write an email to ${recipientName}. Intent: "${rawInput}"`
+            : `Write an email. Intent: "${rawInput}"`,
+        },
+      ],
+    },
+    OPENAI_API_KEY,
+  );
+
+  const parsed = JSON.parse(response.choices[0]?.message.content ?? '{}') as {
+    subject?: string;
+    body?: string;
+  };
+
+  return {
+    subject: parsed.subject?.trim() ?? '',
+    body: parsed.body?.trim() ?? '',
+  };
+};
+
 const handleEmail = async (action: IntentAction) => {
   const recipient = action.recipient ?? action.contact;
   const email = isEmail(recipient)
     ? recipient
     : await getContactEmail(recipient);
-  const subject = action.subject ?? '';
-  const body = action.body ?? action.message ?? action.text ?? '';
 
-  if (recipient && !email) {
-    throw new Error(`No email address found for ${recipient}`);
+  let subject = action.subject ?? '';
+  let body = '';
+
+  // Always generate — user's spoken words are intent context, not a ready-made body
+  const rawInput = action.rawInput ?? '';
+  if (rawInput) {
+    const generated = await generateEmailContent(rawInput, recipient);
+    subject = subject || generated.subject;
+    body = generated.body;
   }
 
   await Linking.openURL(
@@ -134,7 +179,7 @@ const handleEmail = async (action: IntentAction) => {
 
   return result(
     action,
-    email ? `Drafted email to ${email}` : 'Opened email draft',
+    email ? `Drafted email to ${email}` : 'Opened email draft — fill in recipient',
   );
 };
 
