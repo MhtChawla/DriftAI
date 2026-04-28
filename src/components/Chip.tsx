@@ -9,7 +9,7 @@ type Props = {
   onPress?: () => void;
 };
 
-export function Chip({ label, onPress }: Props) {
+export const Chip = React.memo(function Chip({ label, onPress }: Props) {
   const t = useThemeTokens();
   return (
     <Pressable
@@ -28,7 +28,7 @@ export function Chip({ label, onPress }: Props) {
       </Text>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   chip: {

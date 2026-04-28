@@ -1,5 +1,5 @@
 // src/screens/CommandsScreen.tsx
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -43,17 +43,22 @@ export function CommandsScreen(_: Props) {
   const [editing, setEditing] = useState<null | 'new' | string>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
 
-  function openNew() {
+  const openNew = useCallback(() => {
     setDraft({ id: Math.random().toString(36).slice(2), name: '', phrase: '', actions: [{ key: 'open', detail: '' }] });
     setEditing('new');
-  }
+  }, []);
 
-  function openEdit(c: Command) {
+  const openEdit = useCallback((c: Command) => {
     setDraft({ id: c.id, name: c.name, phrase: c.phrase, actions: c.actions });
     setEditing(c.id);
-  }
+  }, []);
 
-  function save() {
+  const closeSheet = useCallback(() => {
+    setEditing(null);
+    setDraft(null);
+  }, []);
+
+  const save = useCallback(() => {
     if (!draft || !draft.name.trim()) return;
     upsert({
       id: draft.id,
@@ -65,7 +70,7 @@ export function CommandsScreen(_: Props) {
     });
     setEditing(null);
     setDraft(null);
-  }
+  }, [draft, upsert]);
 
   return (
     <View style={[styles.root, { backgroundColor: t.bg }]}>
@@ -81,7 +86,7 @@ export function CommandsScreen(_: Props) {
         <Pressable onPress={openNew} style={styles.newBtn}>
           <LinearGradient
             colors={[tokens.accent1, tokens.accent2]}
-            style={StyleSheet.absoluteFillObject as any}
+            style={StyleSheet.absoluteFill}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           />
@@ -92,7 +97,7 @@ export function CommandsScreen(_: Props) {
 
       <ScrollView contentContainerStyle={styles.list}>
         {commands.map((c) => (
-          <CommandRow key={c.id} c={c} onEdit={() => openEdit(c)} />
+          <CommandRow key={c.id} c={c} onEdit={openEdit} />
         ))}
       </ScrollView>
 
@@ -100,26 +105,17 @@ export function CommandsScreen(_: Props) {
         visible={editing !== null}
         animationType="slide"
         transparent
-        onRequestClose={() => {
-          setEditing(null);
-          setDraft(null);
-        }}
+        onRequestClose={closeSheet}
       >
         {draft && (
-          <Pressable
-            style={styles.modalBackdrop}
-            onPress={() => {
-              setEditing(null);
-              setDraft(null);
-            }}
-          >
+          <Pressable style={styles.modalBackdrop} onPress={closeSheet}>
             <Pressable
               style={[styles.sheet, { backgroundColor: t.surface, borderColor: t.border }]}
               onPress={() => {}}
             >
               <View style={[styles.grabber, { backgroundColor: t.borderStrong }]} />
               <View style={styles.sheetHeader}>
-                <Pressable onPress={() => { setEditing(null); setDraft(null); }}>
+                <Pressable onPress={closeSheet}>
                   <Text style={[styles.sheetAction, { color: t.textDim }]}>Cancel</Text>
                 </Pressable>
                 <Text style={[styles.sheetTitle, { color: t.text }]}>
@@ -172,7 +168,7 @@ export function CommandsScreen(_: Props) {
                     <View style={styles.actionIdx}>
                       <LinearGradient
                         colors={[tokens.accent1, tokens.accent2]}
-                        style={StyleSheet.absoluteFillObject as any}
+                        style={StyleSheet.absoluteFill}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                       />
@@ -218,7 +214,13 @@ export function CommandsScreen(_: Props) {
   );
 }
 
-function CommandRow({ c, onEdit }: { c: Command; onEdit: () => void }) {
+const CommandRow = React.memo(function CommandRow({
+  c,
+  onEdit,
+}: {
+  c: Command;
+  onEdit: (c: Command) => void;
+}) {
   const t = useThemeTokens();
   return (
     <View style={[styles.row, { backgroundColor: t.surface, borderColor: t.border }]}>
@@ -236,7 +238,7 @@ function CommandRow({ c, onEdit }: { c: Command; onEdit: () => void }) {
           </Text>
         </View>
         <Pressable
-          onPress={onEdit}
+          onPress={() => onEdit(c)}
           style={[styles.editBtn, { backgroundColor: t.surface2, borderColor: t.border }]}
         >
           <Pencil size={14} color={t.textDim} />
@@ -270,7 +272,7 @@ function CommandRow({ c, onEdit }: { c: Command; onEdit: () => void }) {
       </View>
     </View>
   );
-}
+});
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

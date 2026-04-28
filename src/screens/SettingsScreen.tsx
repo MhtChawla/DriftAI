@@ -59,7 +59,7 @@ export function SettingsScreen(_: Props) {
             <Text style={[styles.profileName, { color: t.text, fontFamily: fonts.sans }]}>
               {name}
             </Text>
-            <Text style={{ color: t.textDim, fontSize: 13 }}>Drif Pro · 12 commands</Text>
+            <Text style={{ color: t.textDim, fontSize: 13 }}>Drift Pro · 12 commands</Text>
           </View>
           <View style={styles.proBadge}>
             <Text style={styles.proBadgeText}>PRO</Text>
@@ -89,7 +89,7 @@ export function SettingsScreen(_: Props) {
                     {active && (
                       <LinearGradient
                         colors={[tokens.accent1, tokens.accent2]}
-                        style={[StyleSheet.absoluteFillObject as any, { borderRadius: 9 }]}
+                        style={[StyleSheet.absoluteFill, { borderRadius: 9 }]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                       />

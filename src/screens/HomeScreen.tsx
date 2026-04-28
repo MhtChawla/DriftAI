@@ -134,7 +134,7 @@ export function HomeScreen({ navigation }: Props) {
               ]}
             >
               <MonoLabel style={{ fontSize: 9.5, color: tokens.accent1 }}>
-                DRIF · REPLY
+                DRIFT · REPLY
               </MonoLabel>
               <Text style={[styles.cardText, { color: t.text }]}>{response}</Text>
             </LinearGradient>

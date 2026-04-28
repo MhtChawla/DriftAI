@@ -1,5 +1,5 @@
 // src/screens/ChatScreen.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  InteractionManager,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { ChevronLeft, Mic, Send } from 'lucide-react-native';
@@ -40,10 +41,14 @@ export function ChatScreen({ navigation }: Props) {
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    scrollRef.current?.scrollToEnd({ animated: true });
+    let alive = true;
+    InteractionManager.runAfterInteractions().then(() => {
+      if (alive) scrollRef.current?.scrollToEnd({ animated: false });
+    });
+    return () => { alive = false; };
   }, [messages.length, typing]);
 
-  function send() {
+  const send = useCallback(() => {
     const v = input.trim();
     if (!v) return;
     addMessage({ role: 'user', text: v });
@@ -53,7 +58,7 @@ export function ChatScreen({ navigation }: Props) {
       setTyping(false);
       addMessage({ role: 'ai', text: aiReply(v) });
     }, 1300 + Math.random() * 600);
-  }
+  }, [input, addMessage]);
 
   return (
     <KeyboardAvoidingView
@@ -77,7 +82,7 @@ export function ChatScreen({ navigation }: Props) {
               end={{ x: 1, y: 1 }}
             />
             <Text style={[styles.title, { color: t.text, fontFamily: fonts.sans }]}>
-              Drif
+              Drift
             </Text>
           </View>
           <MonoLabel style={{ fontSize: 9.5, marginTop: 2 }}>
@@ -145,7 +150,7 @@ export function ChatScreen({ navigation }: Props) {
   );
 }
 
-function Bubble({ msg }: { msg: ChatMessage }) {
+const Bubble = React.memo(function Bubble({ msg }: { msg: ChatMessage }) {
   const t = useThemeTokens();
   const me = msg.role === 'user';
   if (me) {
@@ -177,9 +182,9 @@ function Bubble({ msg }: { msg: ChatMessage }) {
       </Text>
     </View>
   );
-}
+});
 
-function TypingBubble() {
+const TypingBubble = React.memo(function TypingBubble() {
   const t = useThemeTokens();
   return (
     <View
@@ -198,7 +203,7 @@ function TypingBubble() {
       <TypingDots />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

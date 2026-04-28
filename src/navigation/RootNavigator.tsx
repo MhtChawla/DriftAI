@@ -30,13 +30,18 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<TabsParamList>();
 
-function TabBar({ state, navigation }: BottomTabBarProps) {
+const TAB_ITEMS: {
+  key: keyof TabsParamList;
+  label: string;
+  Icon: React.ComponentType<{ size?: number; color?: string }>;
+}[] = [
+  { key: 'Voice', label: 'Voice', Icon: Mic },
+  { key: 'Commands', label: 'Commands', Icon: Command },
+  { key: 'Settings', label: 'Settings', Icon: Settings },
+];
+
+const TabBar = React.memo(function TabBar({ state, navigation }: BottomTabBarProps) {
   const t = useThemeTokens();
-  const items: { key: keyof TabsParamList; label: string; Icon: React.ComponentType<{ size?: number; color?: string }> }[] = [
-    { key: 'Voice', label: 'Voice', Icon: Mic },
-    { key: 'Commands', label: 'Commands', Icon: Command },
-    { key: 'Settings', label: 'Settings', Icon: Settings },
-  ];
 
   return (
     <View
@@ -45,7 +50,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
         { backgroundColor: t.surface, borderColor: t.border },
       ]}
     >
-      {items.map((item, idx) => {
+      {TAB_ITEMS.map((item, idx) => {
         const focused = state.index === idx;
         return (
           <Pressable
@@ -72,7 +77,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
       })}
     </View>
   );
-}
+});
 
 function TabsNavigator() {
   return (

@@ -1,6 +1,6 @@
 // src/components/MicButton.tsx
-import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, Pressable, View, StyleSheet, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { Pressable, View, StyleSheet, ActivityIndicator } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Mic } from 'lucide-react-native';
 import { tokens } from '../theme/tokens';
@@ -16,7 +16,7 @@ type Props = {
 
 const SIZE = 132;
 
-export function MicButton({ state, viz, onTap }: Props) {
+export const MicButton = React.memo(function MicButton({ state, viz, onTap }: Props) {
   const t = useThemeTokens();
   const active = state !== 'idle';
 
@@ -53,148 +53,46 @@ export function MicButton({ state, viz, onTap }: Props) {
       </View>
     </Pressable>
   );
-}
+});
 
-function Rings() {
-  const anim1 = useRef(new Animated.Value(0)).current;
-const anim2 = useRef(new Animated.Value(0)).current;
-const anim3 = useRef(new Animated.Value(0)).current;
-
-const anims = useMemo(() => [anim1, anim2, anim3], [anim1, anim2, anim3]);
-  useEffect(() => {
-    const animations = anims.map((v, i) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(i * 700),
-          Animated.timing(v, {
-            toValue: 1,
-            duration: 2100,
-            easing: Easing.bezier(0.4, 0, 0.6, 1),
-            useNativeDriver: true,
-          }),
-        ]),
-      ),
-    );
-    animations.forEach((a) => a.start());
-    return () => animations.forEach((a) => a.stop());
-  }, [anims]);
-
+const Rings = React.memo(function Rings() {
   return (
     <>
-      {anims.map((v, i) => (
-        <Animated.View
+      {[1.4, 1.65, 1.9].map((scale, i) => (
+        <View
           key={i}
-          style={[
-            styles.ring,
-            {
-              transform: [
-                { scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.9] }) },
-              ],
-              opacity: v.interpolate({ inputRange: [0, 0.8, 1], outputRange: [0.8, 0, 0] }),
-            },
-          ]}
+          style={[styles.ring, { transform: [{ scale }], opacity: 0.4 - i * 0.12 }]}
         />
       ))}
     </>
   );
-}
+});
 
-function Orb() {
-  const a = useRef(new Animated.Value(0)).current;
-  const b = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = (v: Animated.Value, dur: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(v, { toValue: 1, duration: dur, useNativeDriver: true }),
-          Animated.timing(v, { toValue: 0, duration: dur, useNativeDriver: true }),
-        ]),
-      );
-    const la = loop(a, 1500);
-    const lb = loop(b, 2100);
-    la.start();
-    lb.start();
-    return () => {
-      la.stop();
-      lb.stop();
-    };
-  }, [a, b]);
-
+const Orb = React.memo(function Orb() {
   return (
     <>
-      <Animated.View
-        style={[
-          styles.orb,
-          {
-            width: SIZE + 30,
-            height: SIZE + 30,
-            backgroundColor: tokens.accent1,
-            opacity: a.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.36] }),
-            transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] }) }],
-          },
-        ]}
-      />
-      <Animated.View
-        style={[
-          styles.orb,
-          {
-            width: SIZE + 60,
-            height: SIZE + 60,
-            backgroundColor: tokens.accent2,
-            opacity: b.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.28] }),
-            transform: [{ scale: b.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] }) }],
-          },
-        ]}
-      />
+      <View style={styles.orbInner} />
+      <View style={styles.orbOuter} />
     </>
   );
-}
+});
 
-function Bars() {
+const Bars = React.memo(function Bars() {
   const bars = 28;
-  const anims = useRef(
-    Array.from({ length: bars }).map(() => new Animated.Value(0)),
-  ).current;
-
-  useEffect(() => {
-    const animations = anims.map((v, i) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(i * 40),
-          Animated.timing(v, { toValue: 1, duration: 500, useNativeDriver: true }),
-          Animated.timing(v, { toValue: 0, duration: 500, useNativeDriver: true }),
-        ]),
-      ),
-    );
-    animations.forEach((a) => a.start());
-    return () => animations.forEach((a) => a.stop());
-  }, [anims]);
-
   return (
     <View style={styles.barsWrap} pointerEvents="none">
-      {anims.map((v, i) => {
+      {Array.from({ length: bars }).map((_, i) => {
         const angle = (i / bars) * 360;
         return (
-          <Animated.View
+          <View
             key={i}
-            style={{
-              position: 'absolute',
-              width: 2,
-              height: 14,
-              borderRadius: 1,
-              backgroundColor: tokens.accent1,
-              transform: [
-                { rotate: `${angle}deg` },
-                { translateY: -(SIZE / 2 + 18) },
-                { scaleY: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) },
-              ],
-            }}
+            style={[styles.bar, { transform: [{ rotate: `${angle}deg` }, { translateY: -(SIZE / 2 + 18) }] }]}
           />
         );
       })}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: {
@@ -236,6 +134,30 @@ const styles = StyleSheet.create({
     shadowColor: tokens.accent1,
     shadowOpacity: 0.6,
     shadowRadius: 40,
+  },
+  orbInner: {
+    position: 'absolute',
+    width: SIZE + 30,
+    height: SIZE + 30,
+    borderRadius: 999,
+    backgroundColor: tokens.accent1,
+    opacity: 0.25,
+  },
+  orbOuter: {
+    position: 'absolute',
+    width: SIZE + 60,
+    height: SIZE + 60,
+    borderRadius: 999,
+    backgroundColor: tokens.accent2,
+    opacity: 0.18,
+  },
+  bar: {
+    position: 'absolute',
+    width: 2,
+    height: 14,
+    borderRadius: 1,
+    backgroundColor: tokens.accent1,
+    opacity: 0.7,
   },
   core: {
     width: SIZE,
