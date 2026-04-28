@@ -42,10 +42,13 @@ export function ChatScreen({ navigation }: Props) {
 
   useEffect(() => {
     let alive = true;
-    InteractionManager.runAfterInteractions().then(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
       if (alive) scrollRef.current?.scrollToEnd({ animated: false });
     });
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+      task.cancel();
+    };
   }, [messages.length, typing]);
 
   const send = useCallback(() => {

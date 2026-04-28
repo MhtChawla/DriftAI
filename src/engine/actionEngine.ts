@@ -5,6 +5,9 @@ import Share, { Social } from 'react-native-share';
 import type { Contact } from 'react-native-contacts';
 import { useAppStore, type CommandAction } from '../store/useAppStore';
 import type { IntentAction } from '../utils/api/intentParser';
+import { OPENAI_API_KEY } from '../../secrets';
+import { createChatCompletion } from '../utils/api/openaiClient';
+import { speak } from '../hooks/useTTS';
 
 export type ActionExecutionResult = {
   type: IntentAction['type'];
@@ -154,23 +157,40 @@ const handleInstagramPost = async (action: IntentAction) => {
 };
 
 const handleTranslate = async (action: IntentAction) => {
-  const text = action.text ?? action.message;
+  const text = action.text ?? action.message ?? action.query;
 
   if (!text) {
     throw new Error('No text provided to translate');
   }
 
-  const targetLanguage = getLanguageCode(action.language);
-  const url = `https://translate.google.com/?sl=auto&tl=${targetLanguage}&text=${encodeURIComponent(
-    text,
-  )}&op=translate`;
+  const language = action.language ?? 'English';
 
-  await Linking.openURL(url);
-
-  return result(
-    action,
-    `Opened translation${action.language ? ` to ${action.language}` : ''}`,
+  const response = await createChatCompletion(
+    {
+      model: 'gpt-4o-mini',
+      temperature: 0,
+      max_tokens: 200,
+      messages: [
+        {
+          role: 'system',
+          content: `You are a translator. Translate the user's text to ${language}. Reply with ONLY the translated text, nothing else.`,
+        },
+        { role: 'user', content: text },
+      ],
+    },
+    OPENAI_API_KEY,
   );
+
+  const translated = response.choices[0]?.message.content?.trim();
+
+  if (!translated) {
+    throw new Error('Translation failed — empty response');
+  }
+
+  const speakText = `In ${language} we call it: ${translated}`;
+  speak(speakText, language).catch(() => {});
+
+  return result(action, `In ${language}: ${translated}`);
 };
 
 const handleOpenApp = async (action: IntentAction) => {
@@ -553,40 +573,6 @@ const parseDurationTimestamp = (value: string) => {
   return Date.now() + amount * multiplier;
 };
 
-const getLanguageCode = (language?: string) => {
-  if (!language) {
-    return 'auto';
-  }
-
-  return (
-    LANGUAGE_CODES[normalizeComparable(language)] ??
-    language.slice(0, 2).toLowerCase()
-  );
-};
-
-const LANGUAGE_CODES: Record<string, string> = {
-  arabic: 'ar',
-  bengali: 'bn',
-  chinese: 'zh-CN',
-  english: 'en',
-  french: 'fr',
-  german: 'de',
-  gujarati: 'gu',
-  hindi: 'hi',
-  italian: 'it',
-  japanese: 'ja',
-  kannada: 'kn',
-  korean: 'ko',
-  malayalam: 'ml',
-  marathi: 'mr',
-  portuguese: 'pt',
-  punjabi: 'pa',
-  russian: 'ru',
-  spanish: 'es',
-  tamil: 'ta',
-  telugu: 'te',
-  urdu: 'ur',
-};
 
 const openFirstUrl = async (urls: string[], label: string) => {
   let lastError: unknown;

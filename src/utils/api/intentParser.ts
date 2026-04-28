@@ -98,6 +98,30 @@ Output:
     }
   ]
 }
+
+Input: "what do i call in hindi for: i am going"
+Output:
+{
+  "actions": [
+    {
+      "type": "translate",
+      "text": "i am going",
+      "language": "hindi"
+    }
+  ]
+}
+
+Input: "how do you say goodbye in French"
+Output:
+{
+  "actions": [
+    {
+      "type": "translate",
+      "text": "goodbye",
+      "language": "French"
+    }
+  ]
+}
 `;
 
 const SUPPORTED_INTENT_SET = new Set<string>(SUPPORTED_INTENTS);
@@ -279,14 +303,40 @@ const parseTranslate = (text: string): IntentAction | null => {
 
   const translateText = cleanValue(text.match(/^translate\s+(.+)$/i)?.[1]);
 
-  if (!translateText) {
-    return null;
+  if (translateText) {
+    return {
+      type: 'translate',
+      text: translateText,
+    };
   }
 
-  return {
-    type: 'translate',
-    text: translateText,
-  };
+  // "what do i call X in Hindi" / "how do you say X in Hindi"
+  const naturalTranslate = text.match(
+    /^(?:what(?:'s| is| do (?:i|you|we) (?:call|say))|how (?:do (?:i|you|we) say|to say))\s+(.+?)\s+(?:in|into)\s+([a-z][a-z\s-]*)$/i,
+  );
+
+  if (naturalTranslate) {
+    return {
+      type: 'translate',
+      text: cleanValue(naturalTranslate[1]),
+      language: cleanEntity(naturalTranslate[2]),
+    };
+  }
+
+  // "what is X in Hindi for: phrase" or "what do i call in Hindi for: phrase"
+  const forColonTranslate = text.match(
+    /^(?:what(?:'s| is| do (?:i|you|we) (?:call|say))|how (?:do (?:i|you|we) say|to say))(?:\s+.+?)?\s+in\s+([a-z][a-z\s-]*?)\s+for[:\s]+(.+)$/i,
+  );
+
+  if (forColonTranslate) {
+    return {
+      type: 'translate',
+      language: cleanEntity(forColonTranslate[1]),
+      text: cleanValue(forColonTranslate[2]),
+    };
+  }
+
+  return null;
 };
 
 const parseReminder = (text: string): IntentAction | null => {
@@ -399,10 +449,10 @@ const parseChat = (text: string): IntentAction | null => {
 const parseLocalSingleIntent = (text: string): IntentAction | null => {
   const parsers = [
     parseCustomCommand,
+    parseTranslate,
     parseWhatsapp,
     parseEmail,
     parseInstagramPost,
-    parseTranslate,
     parseReminder,
     parseCall,
     parseGallerySearch,

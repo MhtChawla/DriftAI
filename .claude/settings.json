@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node --input-type=module)"
+      "Bash(node --input-type=module)",
+      "Bash(node -e ' *)",
+      "Bash(./gradlew app:compileDebugKotlin)"
     ]
   }
 }
