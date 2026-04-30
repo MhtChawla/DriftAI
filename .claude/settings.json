@@ -3,7 +3,10 @@
     "allow": [
       "Bash(node --input-type=module)",
       "Bash(node -e ' *)",
-      "Bash(./gradlew app:compileDebugKotlin)"
+      "Bash(./gradlew app:compileDebugKotlin)",
+      "Read(//Users/mohit-aiemployee/.claude/projects/**)",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs '-I{}' python3 -c ' *)"
     ]
   }
 }

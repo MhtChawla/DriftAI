@@ -1,6 +1,7 @@
 import notifee, { AndroidImportance, TriggerType } from '@notifee/react-native';
-import { Linking, NativeModules, Platform } from 'react-native';
+import { Linking, NativeModules, PermissionsAndroid, Platform } from 'react-native';
 import Contacts from 'react-native-contacts';
+import { launchImageLibrary } from 'react-native-image-picker';
 import Share, { Social } from 'react-native-share';
 import type { Contact } from 'react-native-contacts';
 import { useAppStore, type CommandAction } from '../store/useAppStore';
@@ -184,21 +185,180 @@ const handleEmail = async (action: IntentAction) => {
 };
 
 const handleInstagramPost = async (action: IntentAction) => {
-  const message = action.caption ?? action.message ?? action.text ?? '';
+  const sourceImageUri = await getLatestGalleryImageUri();
+  const imageUri = await prepareImageForSharing(sourceImageUri);
+  const message = await generateInstagramCaption(action, imageUri);
+
+  await copyCaptionToClipboard(message).catch(error => {
+    console.warn('[InstagramPost] Failed to copy caption', error);
+  });
 
   try {
+    await Share.open({
+      title: 'Share to Instagram',
+      message,
+      url: imageUri,
+      type: 'image/jpeg',
+      failOnCancel: false,
+    });
+  } catch {
     await Share.shareSingle({
       social: Social.Instagram,
       message,
+      url: imageUri,
+      type: 'image/jpeg',
     });
-  } catch {
-    await openFirstUrl(
-      ['instagram://app', 'https://www.instagram.com/'],
-      'Instagram',
-    );
   }
 
-  return result(action, 'Opened Instagram post flow');
+  return result(action, `Opened share sheet for Instagram\nCaption copied:\n${message}`);
+};
+
+const prepareImageForSharing = async (uri: string) => {
+  if (Platform.OS !== 'android' || uri.startsWith('file://')) {
+    return uri;
+  }
+
+  try {
+    return await NativeModules.GalleryModule?.cacheImageForSharing?.(uri) ?? uri;
+  } catch (error) {
+    console.warn('[InstagramPost] Failed to cache image for sharing', error);
+    return uri;
+  }
+};
+
+const getLatestGalleryImageUri = async () => {
+  if (Platform.OS !== 'android') {
+    throw new Error('Latest gallery image sharing is currently Android-only');
+  }
+
+  await ensureGalleryPermission();
+
+  const uri = await NativeModules.GalleryModule?.getLatestImageUri?.();
+
+  if (!uri) {
+    return pickGalleryImage();
+  }
+
+  return uri;
+};
+
+const pickGalleryImage = async () =>
+  new Promise<string>((resolve, reject) => {
+    launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 }, response => {
+      if (response.didCancel) {
+        reject(new Error('Image selection cancelled'));
+        return;
+      }
+
+      if (response.errorCode) {
+        reject(new Error(response.errorMessage || 'Failed to pick image'));
+        return;
+      }
+
+      const uri = response.assets?.[0]?.uri;
+
+      if (!uri) {
+        reject(new Error('No image selected'));
+        return;
+      }
+
+      resolve(uri);
+    });
+  });
+
+const ensureGalleryPermission = async () => {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+
+  const permission =
+    Number(Platform.Version) >= 33
+      ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
+      : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+
+  const hasPermission = await PermissionsAndroid.check(permission);
+
+  if (hasPermission) {
+    return;
+  }
+
+  const status = await PermissionsAndroid.request(permission);
+
+  if (status !== PermissionsAndroid.RESULTS.GRANTED) {
+    throw new Error('Gallery permission denied');
+  }
+};
+
+const copyCaptionToClipboard = async (caption: string) => {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+
+  await NativeModules.GalleryModule?.copyTextToClipboard?.(caption);
+};
+
+const generateInstagramCaption = async (action: IntentAction, imageUri: string) => {
+  const userCaption = action.caption ?? action.message;
+  const rawInput = action.rawInput ?? action.text ?? '';
+
+  try {
+    const imageDataUri = await NativeModules.GalleryModule?.getImageDataUri?.(imageUri);
+
+    if (!imageDataUri) {
+      throw new Error('Unable to prepare image for caption generation');
+    }
+
+    const response = await createChatCompletion(
+      {
+        model: 'gpt-4o-mini',
+        temperature: 0.8,
+        max_tokens: 220,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: `You can see the image. Generate an Instagram caption and hashtags that match the actual image.
+Return ONLY valid JSON: { "caption": string, "hashtags": string[] }
+Keep the caption natural and short. Mention visible subject/mood only when clear. Include 5-8 relevant hashtags.`,
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: userCaption
+                  ? `User wants this caption idea: "${userCaption}". Full command: "${rawInput}"`
+                  : `Create a caption for this image. Full command: "${rawInput || 'post my recent picture'}"`,
+              },
+              {
+                type: 'image_url',
+                image_url: { url: imageDataUri },
+              },
+            ],
+          },
+        ],
+      },
+      OPENAI_API_KEY,
+    );
+
+    const parsed = JSON.parse(response.choices[0]?.message.content ?? '{}') as {
+      caption?: string;
+      hashtags?: string[];
+    };
+    const caption = parsed.caption?.trim();
+    const hashtags = (parsed.hashtags ?? [])
+      .map(tag => tag.trim())
+      .filter(Boolean)
+      .map(tag => (tag.startsWith('#') ? tag : `#${tag}`));
+
+    if (caption || hashtags.length) {
+      return [caption, hashtags.join(' ')].filter(Boolean).join('\n\n');
+    }
+  } catch (error) {
+    console.warn('[InstagramPost] Caption generation failed', error);
+  }
+
+  return userCaption?.trim() || 'A little moment from today.\n\n#today #moments #instagood #photooftheday #memories';
 };
 
 const handleTranslate = async (action: IntentAction) => {

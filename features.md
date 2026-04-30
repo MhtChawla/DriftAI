@@ -15,11 +15,13 @@
   Draft email to wish Mohit Happy Birthday -> it drafts a sweet birthday wish in body + regards at end, subject & mail to (if email is found in contacts), opens gmail app & ready to send!
   Draft email for leave on 5th may as going for a family trip -> it writes a leave email with details & raeson, + regards at end, subject & mail to (if email is found in contacts), opens gmail app & ready to send!
 
-## 3. Instagram Smart Post
+## 3. Instagram Smart Post ✅
 
 - Pick latest image from gallery
 - Generate caption + hashtags
 - Open Instagram via share sheet
+  E.g.
+  Post my recent picture on insta -> it picks your latest picture - generate captions & hashtag & give you options for feed / reels - you select one - it opens that in instagram (caption might not be visible there due to insta permissions - but its already copied on clipboard), so paste - it'll paste caption + hashtags & post.
 
 ## 4. AI Translation ✅
 
@@ -53,10 +55,12 @@
 - Ask questions → get AI response
 - Optional TTS playback
 
-## 9. Smart Gallery Search
+## 9. Smart Gallery Search ✅
 
 - Fetch images
 - Filter via tags/keywords
+  E.g.
+  Show me photos from 24th of feb -> it opens gallery & redirect to 24th feb pictures
 
 ## 10. Custom Commands
 

@@ -5,8 +5,18 @@ export interface OpenAIMessage {
   content: string;
 }
 
+export interface OpenAIRequestMessage {
+  role: 'user' | 'assistant' | 'system';
+  content:
+    | string
+    | Array<
+        | { type: 'text'; text: string }
+        | { type: 'image_url'; image_url: { url: string } }
+      >;
+}
+
 export interface ChatCompletionRequest {
-  messages: OpenAIMessage[];
+  messages: OpenAIRequestMessage[];
   model?: string;
   temperature?: number;
   max_tokens?: number;

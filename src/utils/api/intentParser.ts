@@ -279,15 +279,16 @@ const parseEmail = (text: string): IntentAction | null => {
 const parseInstagramPost = (text: string): IntentAction | null => {
   const hasInstagram = /\b(?:instagram|insta|ig)\b/i.test(text);
   const hasPostIntent = /\b(?:post|caption|share|upload)\b/i.test(text);
+  const hasPhotoTarget = /\b(?:latest|recent|last|newest)?\s*(?:photo|image|picture|pic)\b/i.test(text);
 
-  if (!hasInstagram || !hasPostIntent) {
+  if (!hasPostIntent || (!hasInstagram && !hasPhotoTarget)) {
     return null;
   }
 
   const caption = cleanValue(
     text.match(/\b(?:with(?:\s+a)?\s+caption|caption|saying)\s+(.+)$/i)?.[1],
   );
-  const query = /\blatest\b.*\b(?:photo|image|picture)\b/i.test(text)
+  const query = /\b(?:latest|recent|last|newest)\b.*\b(?:photo|image|picture|pic)\b/i.test(text)
     ? 'latest image'
     : undefined;
 
