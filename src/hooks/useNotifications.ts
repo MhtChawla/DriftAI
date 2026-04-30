@@ -30,7 +30,8 @@ export const useNotifications = (): UseNotificationsReturn => {
         await notifee.createChannel({
           id: 'default',
           name: 'Default Channel',
-          importance: AndroidImportance.DEFAULT,
+          importance: AndroidImportance.HIGH,
+          sound: 'default',
         });
 
         // Listen to foreground events
@@ -67,6 +68,7 @@ export const useNotifications = (): UseNotificationsReturn => {
           android: {
             channelId: 'default',
             smallIcon: 'ic_launcher',
+            sound: 'default',
             pressAction: {
               id: 'default',
             },
@@ -92,6 +94,7 @@ export const useNotifications = (): UseNotificationsReturn => {
             android: {
               channelId: 'default',
               smallIcon: 'ic_launcher',
+              sound: 'default',
             },
             data: payload.data || {},
           },

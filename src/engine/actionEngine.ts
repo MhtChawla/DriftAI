@@ -405,9 +405,28 @@ const handleOpenApp = async (action: IntentAction) => {
     throw new Error('No app provided to open');
   }
 
-  if (normalizeComparable(app).includes('settings')) {
+  const normalized = normalizeComparable(app);
+
+  if (normalized.includes('settings')) {
     await Linking.openSettings();
     return result(action, 'Opened settings');
+  }
+
+  if (normalized.includes('camera')) {
+    const { launchCamera } = await import('react-native-image-picker');
+    launchCamera({ mediaType: 'photo', saveToPhotos: false }, () => {});
+    return result(action, 'Opened camera');
+  }
+
+  if (normalized.includes('contact')) {
+    if (Platform.OS === 'android') {
+      await Linking.openURL('content://contacts/people/').catch(async () => {
+        await Linking.openURL('https://contacts.google.com/');
+      });
+    } else {
+      await Linking.openURL('addressbook://');
+    }
+    return result(action, 'Opened contacts');
   }
 
   await openFirstUrl(getAppUrls(app), app);
@@ -645,8 +664,10 @@ const handleCustomCommand = async (action: IntentAction) => {
 
   const messages: string[] = [];
   const orderedActions = [
-    ...command.actions.filter(commandAction => !isExternalCommandAction(commandAction)),
-    ...command.actions.filter(isExternalCommandAction),
+    ...command.actions.filter(a => a.key === 'set'),
+    ...command.actions.filter(a => a.key === 'msg'),
+    ...command.actions.filter(a => a.key === 'open' || a.key === 'play'),
+    ...command.actions.filter(a => a.key === 'timer'),
   ];
 
   for (const commandAction of orderedActions) {
@@ -659,32 +680,21 @@ const handleCustomCommand = async (action: IntentAction) => {
 const executeCommandAction = async (action: CommandAction) => {
   switch (action.key) {
     case 'open':
-      await handleOpenApp({ type: 'open_app', app: action.detail });
-      return `Opened ${action.detail}`;
+      return handleOpenCommandDetail(action.detail);
 
     case 'msg':
-      await Share.open({
-        title: action.detail,
-        message: action.detail,
-        failOnCancel: false,
-      });
-      return `Shared ${action.detail}`;
+      await openFirstUrl(
+        [`whatsapp://send?text=`, `https://wa.me/`],
+        'WhatsApp',
+      );
+      return 'Opened WhatsApp';
 
     case 'timer':
       await startDeviceTimer(action.detail);
       return `Started timer: ${action.detail}`;
 
     case 'play':
-      await openFirstUrl(
-        [
-          `spotify:search:${encodeURIComponent(action.detail)}`,
-          `https://open.spotify.com/search/${encodeURIComponent(
-            action.detail,
-          )}`,
-        ],
-        'Spotify',
-      );
-      return `Opened Spotify for ${action.detail}`;
+      return handlePlayCommand(action.detail);
 
     case 'set':
       return handleSettingCommand(action.detail);
@@ -694,57 +704,312 @@ const executeCommandAction = async (action: CommandAction) => {
   }
 };
 
-const isExternalCommandAction = (action: CommandAction) =>
-  action.key === 'open' || action.key === 'play';
+const handlePlayCommand = async (detail: string) => {
+  const normalized = normalizeComparable(detail);
+
+  // Spotify playlist shortcuts
+  if (normalized.includes('spotify')) {
+    const query = normalized.replace('spotify', '').trim();
+    if (query) {
+      await openFirstUrl(
+        [
+          `spotify:search:${encodeURIComponent(query)}`,
+          `https://open.spotify.com/search/${encodeURIComponent(query)}`,
+        ],
+        'Spotify',
+      );
+      return `Opened Spotify: ${query}`;
+    }
+    await openFirstUrl(['spotify://', 'https://open.spotify.com/'], 'Spotify');
+    return 'Opened Spotify';
+  }
+
+  if (normalized.includes('youtube')) {
+    await openFirstUrl(['youtubemusic://', 'https://music.youtube.com/'], 'YouTube Music');
+    return 'Opened YouTube Music';
+  }
+
+  await openFirstUrl(
+    [
+      `spotify:search:${encodeURIComponent(detail)}`,
+      `https://open.spotify.com/search/${encodeURIComponent(detail)}`,
+    ],
+    'Spotify',
+  );
+  return `Opened Spotify for ${detail}`;
+};
+
+const handleOpenCommandDetail = async (detail: string) => {
+  const normalized = normalizeComparable(detail);
+
+  // Stopwatch
+  if (normalized === 'stopwatch') {
+    await openFirstUrl(
+      ['clock-stopwatch://', 'https://clock.google.com/'],
+      'Stopwatch',
+    );
+    return 'Opened stopwatch';
+  }
+
+  // Maps with specific intent
+  if (normalized.startsWith('maps ')) {
+    return handleMapsDetail(normalized.slice(5).trim());
+  }
+
+  // YouTube with search intent
+  if (normalized.startsWith('youtube search ')) {
+    const query = detail.slice('youtube search '.length).trim();
+    await openFirstUrl(
+      [
+        `youtube://results?search_query=${encodeURIComponent(query)}`,
+        `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
+      ],
+      'YouTube',
+    );
+    return `Searched YouTube: ${query}`;
+  }
+
+  // Browser intents
+  if (normalized.startsWith('browser ')) {
+    const rest = normalized.slice('browser '.length).trim();
+    if (rest === 'google.com') {
+      await openFirstUrl(['googlechrome://www.google.com/', 'https://www.google.com/'], 'Browser');
+      return 'Opened Google';
+    }
+    if (rest === 'search custom') {
+      await openFirstUrl(['googlechrome://www.google.com/', 'https://www.google.com/'], 'Browser');
+      return 'Opened browser for search';
+    }
+    const url = rest.startsWith('http') ? rest : `https://${rest}`;
+    await openFirstUrl([url], 'Browser');
+    return `Opened ${rest}`;
+  }
+
+  // WhatsApp contact chat
+  if (normalized === 'whatsapp contact') {
+    await openFirstUrl(['whatsapp://send?text=', 'https://wa.me/'], 'WhatsApp');
+    return 'Opened WhatsApp';
+  }
+
+  // Fall through to generic open
+  await handleOpenApp({ type: 'open_app', app: detail });
+  return `Opened ${detail}`;
+};
+
+const handleMapsDetail = async (sub: string) => {
+  if (sub === 'navigate home') {
+    await openFirstUrl(
+      [
+        'comgooglemaps://?daddr=home&directionsmode=driving',
+        'https://maps.google.com/?daddr=home',
+      ],
+      'Maps',
+    );
+    return 'Opened Maps: navigate to Home';
+  }
+
+  if (sub === 'navigate work') {
+    await openFirstUrl(
+      [
+        'comgooglemaps://?daddr=work&directionsmode=driving',
+        'https://maps.google.com/?daddr=work',
+      ],
+      'Maps',
+    );
+    return 'Opened Maps: navigate to Work';
+  }
+
+  if (sub.startsWith('search ')) {
+    const query = sub.slice('search '.length).trim();
+    if (query === 'custom') {
+      await openFirstUrl(['comgooglemaps://', 'https://maps.google.com/'], 'Maps');
+      return 'Opened Maps';
+    }
+    await openFirstUrl(
+      [
+        `comgooglemaps://?q=${encodeURIComponent(query)}`,
+        `https://maps.google.com/search?q=${encodeURIComponent(query)}`,
+      ],
+      'Maps',
+    );
+    return `Searched Maps: ${query}`;
+  }
+
+  await openFirstUrl(['comgooglemaps://', 'https://maps.google.com/'], 'Maps');
+  return 'Opened Maps';
+};
+
 
 const handleSettingCommand = async (detail: string) => {
   const normalized = normalizeComparable(detail);
 
-  if (normalized.includes('light') || normalized.includes('brightness')) {
+  // Brightness
+  if (normalized.includes('brightness')) {
     if (Platform.OS === 'android' && NativeModules.AutomationModule) {
-      const brightnessPercent = parsePercent(detail) ?? 20;
+      const brightnessPercent = parsePercent(detail) ?? 50;
       const changed = await NativeModules.AutomationModule.setBrightness(brightnessPercent);
-
       if (!changed) {
-        return 'Opened modify system settings access — allow DriftAI, then run Wind Down again';
+        return 'Opened system settings — allow DriftAI to change brightness, then run again';
       }
-
       return `Brightness set to ${brightnessPercent}%`;
     }
-
     await Linking.openSettings();
-    return `Opened settings for ${detail}`;
+    return 'Opened settings for brightness';
+  }
+
+  // DND with duration
+  if (normalized.includes('dnd on 30min')) {
+    if (Platform.OS === 'android' && NativeModules.AutomationModule) {
+      const changed = await NativeModules.AutomationModule.setDoNotDisturb(true);
+      if (!changed) return 'Opened DND access settings — allow DriftAI, then run again';
+      // Schedule DND off after 30 min
+      setTimeout(() => NativeModules.AutomationModule?.setDoNotDisturb(false), 30 * 60 * 1000);
+      return 'DND enabled for 30 minutes';
+    }
+    await Linking.openSettings();
+    return 'Opened DND settings';
+  }
+
+  if (normalized.includes('dnd on 60min')) {
+    if (Platform.OS === 'android' && NativeModules.AutomationModule) {
+      const changed = await NativeModules.AutomationModule.setDoNotDisturb(true);
+      if (!changed) return 'Opened DND access settings — allow DriftAI, then run again';
+      setTimeout(() => NativeModules.AutomationModule?.setDoNotDisturb(false), 60 * 60 * 1000);
+      return 'DND enabled for 60 minutes';
+    }
+    await Linking.openSettings();
+    return 'Opened DND settings';
   }
 
   if (normalized.includes('dnd') || normalized.includes('do not disturb')) {
     if (Platform.OS === 'android' && NativeModules.AutomationModule) {
       const enabled = !/\b(off|disable|disabled)\b/.test(normalized);
       const changed = await NativeModules.AutomationModule.setDoNotDisturb(enabled);
-
-      if (!changed) {
-        return 'Opened DND access settings — allow DriftAI, then run the command again';
-      }
-
+      if (!changed) return 'Opened DND access settings — allow DriftAI, then run again';
       return enabled ? 'DND enabled' : 'DND disabled';
     }
-
     await Linking.openSettings();
-    return 'Opened settings for DND';
+    return 'Opened DND settings';
   }
 
-  if (normalized.includes('alarm')) {
-    const alarm = parseAlarmTime(detail);
-
-    if (Platform.OS === 'android' && NativeModules.AutomationModule && alarm) {
-      await NativeModules.AutomationModule.setAlarm(alarm.hour, alarm.minute, detail);
-      return `Set alarm: ${formatAlarmTime(alarm.hour, alarm.minute)}`;
+  // Volume / Ringer modes
+  if (normalized === 'silent mode' || normalized === 'silent') {
+    if (Platform.OS === 'android' && NativeModules.AutomationModule) {
+      const changed = await NativeModules.AutomationModule.setRingerMode('silent');
+      if (!changed) return 'Opened DND access settings — allow DriftAI to set silent mode';
+      return 'Phone set to silent';
     }
+    await Linking.openSettings();
+    return 'Opened sound settings';
+  }
 
+  if (normalized === 'vibrate mode' || normalized === 'vibrate') {
+    if (Platform.OS === 'android' && NativeModules.AutomationModule) {
+      await NativeModules.AutomationModule.setRingerMode('vibrate');
+      return 'Phone set to vibrate';
+    }
+    await Linking.openSettings();
+    return 'Opened sound settings';
+  }
+
+  if (normalized === 'ringer mode' || normalized === 'ringer') {
+    if (Platform.OS === 'android' && NativeModules.AutomationModule) {
+      await NativeModules.AutomationModule.setRingerMode('normal');
+      return 'Phone set to ring';
+    }
+    await Linking.openSettings();
+    return 'Opened sound settings';
+  }
+
+  // Media volume
+  if (normalized.startsWith('volume ')) {
+    const level = normalized.slice('volume '.length).trim();
+    if (Platform.OS === 'android' && NativeModules.AutomationModule) {
+      const volumePercent = level === 'low' ? 25 : level === 'medium' ? 50 : level === 'high' ? 100 : 0;
+      if (level === 'mute') {
+        await NativeModules.AutomationModule.setMediaVolume?.(0);
+        return 'Media volume muted';
+      }
+      await NativeModules.AutomationModule.setMediaVolume?.(volumePercent);
+      return `Media volume set to ${volumePercent}%`;
+    }
+    await Linking.openSettings();
+    return 'Opened sound settings';
+  }
+
+  // Flashlight
+  if (normalized.includes('flashlight')) {
+    const on = !normalized.includes('off');
+    if (Platform.OS === 'android' && NativeModules.AutomationModule) {
+      await NativeModules.AutomationModule.setFlashlight?.(on);
+      return `Flashlight ${on ? 'on' : 'off'}`;
+    }
+    await Linking.openSettings();
+    return 'Opened settings for flashlight';
+  }
+
+  // Bluetooth
+  if (normalized.includes('bluetooth')) {
+    await openFirstUrl(['https://bluetooth.settings.android/'], 'Bluetooth settings').catch(() => {});
+    await Linking.openSettings();
+    return 'Opened Bluetooth settings';
+  }
+
+  // WiFi (system restriction — can only open settings)
+  if (normalized.includes('wifi')) {
+    await Linking.openSettings();
+    return 'Opened WiFi settings';
+  }
+
+  // Lock screen
+  if (normalized.includes('lock screen') || normalized.includes('lock')) {
+    if (Platform.OS === 'android' && NativeModules.AutomationModule) {
+      await NativeModules.AutomationModule.lockScreen?.();
+      return 'Screen locked';
+    }
+    await Linking.openSettings();
+    return 'Opened settings';
+  }
+
+  // Alarm
+  if (normalized.includes('alarm')) {
+    if (normalized.includes('custom')) {
+      await openFirstUrl(['clock-alarm://', 'https://clock.google.com/'], 'Clock');
+      return 'Opened Clock to set alarm';
+    }
+    const alarm = parseAlarmTime(detail);
+    if (Platform.OS === 'android' && NativeModules.AutomationModule && alarm) {
+      await NativeModules.AutomationModule.setAlarm(alarm.hour, alarm.minute, 'Alarm');
+      return `Alarm set for ${formatAlarmTime(alarm.hour, alarm.minute)}`;
+    }
     await openFirstUrl(['clock-alarm://', 'https://clock.google.com/'], 'Clock');
     return 'Opened Clock for alarm';
   }
 
-  if (normalized.includes('timer')) {
+  // Reminder shortcuts
+  if (normalized.includes('reminder ')) {
+    const subject = normalized.slice('reminder '.length).trim();
+    if (subject === 'custom') {
+      return 'Say your reminder — e.g. "remind me to call mom at 5pm"';
+    }
+    const label = subject === 'drink water' ? 'Drink water' : subject === 'gym' ? 'Go to gym' : subject;
+    await createReminderNotification(label, Date.now() + 60 * 60 * 1000);
+    return `Reminder set: "${label}" in 1 hour`;
+  }
+
+  // Scheduled notification
+  if (normalized.includes('notify in ')) {
+    const rest = normalized.slice('notify in '.length).trim();
+    if (rest === 'custom') {
+      return 'Say the delay — e.g. "remind me in 15 minutes"';
+    }
+    const minutes = rest === '10min' ? 10 : rest === '30min' ? 30 : 10;
+    await createReminderNotification('DriftAI Notification', Date.now() + minutes * 60 * 1000);
+    return `Notification scheduled in ${minutes} minutes`;
+  }
+
+  // Timer custom fallback
+  if (normalized.includes('timer custom')) {
     await openFirstUrl(['clock-alarm://', 'https://clock.google.com/'], 'Clock');
     return 'Opened Clock for timer';
   }
@@ -926,10 +1191,11 @@ const getAppUrls = (app: string) => {
 };
 
 const APP_URLS: Record<string, string[]> = {
-  whatsapp: ['whatsapp://send?text='],
+  whatsapp: ['whatsapp://send?text=', 'https://wa.me/'],
   instagram: ['instagram://app', 'https://www.instagram.com/'],
   spotify: ['spotify://', 'https://open.spotify.com/'],
   youtube: ['youtube://', 'https://www.youtube.com/'],
+  'youtube music': ['youtubemusic://', 'https://music.youtube.com/'],
   gmail: ['googlegmail://', 'mailto:'],
   mail: ['mailto:'],
   email: ['mailto:'],
@@ -937,15 +1203,22 @@ const APP_URLS: Record<string, string[]> = {
     Platform.OS === 'ios' ? 'http://maps.apple.com/' : 'geo:0,0?q=',
     'https://maps.google.com/',
   ],
-  photos: ['googlephotos://'],
-  gallery: ['googlephotos://'],
+  'google maps': ['comgooglemaps://', 'geo:0,0?q=', 'https://maps.google.com/'],
+  photos: ['googlephotos://', 'https://photos.google.com/'],
+  'google photos': ['googlephotos://', 'https://photos.google.com/'],
+  gallery: ['googlephotos://', 'https://photos.google.com/'],
   calendar: ['calshow://', 'https://calendar.google.com/'],
+  contacts: ['content://contacts/people/', 'https://contacts.google.com/'],
+  camera: ['android.media.action.IMAGE_CAPTURE'],
   slack: ['slack://open', 'https://slack.com/'],
   linear: ['linear://', 'https://linear.app/'],
   telegram: ['tg://', 'https://web.telegram.org/'],
   discord: ['discord://', 'https://discord.com/app'],
   chrome: ['googlechrome://', 'https://www.google.com/'],
   browser: ['https://www.google.com/'],
+  linkedin: ['linkedin://', 'https://www.linkedin.com/'],
+  snapchat: ['snapchat://', 'https://www.snapchat.com/'],
+  facebook: ['fb://', 'https://www.facebook.com/'],
 };
 
 
@@ -961,15 +1234,15 @@ const parseDurationTimestamp = (value: string) => {
 
 const parseDurationSeconds = (value: string) => {
   const match = normalizeComparable(value).match(
-    /\bin\s+(\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs|day|days)\b|^(\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs|day|days)\b/,
+    /\bin\s+(\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs|day|days)\b|\bfor\s+(\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs|day|days)\b|^(\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs|day|days)\b/,
   );
 
   if (!match) {
     return null;
   }
 
-  const amount = Number(match[1] ?? match[3]);
-  const unit = match[2] ?? match[4];
+  const amount = Number(match[1] ?? match[3] ?? match[5]);
+  const unit = match[2] ?? match[4] ?? match[6];
   const multiplier =
     unit.startsWith('hour') || unit.startsWith('hr')
       ? 60 * 60

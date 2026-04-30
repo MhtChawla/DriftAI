@@ -37,7 +37,7 @@
   E.g.
   Call Ram -> Fetches contact & ringing Ram
 
-## 6. Multi-step Execution
+## 6. Multi-step Execution ✅
 
 - Parse compound commands
 - Execute sequential actions with state
@@ -62,7 +62,7 @@
   E.g.
   Show me photos from 24th of feb -> it opens gallery & redirect to 24th feb pictures
 
-## 10. Custom Commands
+## 10. Custom Commands ✅
 
 - User-defined command → mapped to action chain
 - Stored locally
