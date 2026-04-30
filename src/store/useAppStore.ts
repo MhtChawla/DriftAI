@@ -97,11 +97,17 @@ const seedMessages: ChatMessage[] = [
 ];
 
 const COMMANDS_STORAGE_KEY = 'commands';
+const MESSAGES_STORAGE_KEY = 'messages';
 
 const getInitialCommands = () => getItem<Command[]>(COMMANDS_STORAGE_KEY) ?? seedCommands;
+const getInitialMessages = () => getItem<ChatMessage[]>(MESSAGES_STORAGE_KEY) ?? seedMessages;
 
 const persistCommands = (commands: Command[]) => {
   setItem(COMMANDS_STORAGE_KEY, commands);
+};
+
+const persistMessages = (messages: ChatMessage[]) => {
+  setItem(MESSAGES_STORAGE_KEY, messages);
 };
 
 export const useAppStore = create<AppState>((set) => ({
@@ -123,7 +129,7 @@ export const useAppStore = create<AppState>((set) => ({
   language: 'English (US)',
   ttsEnabled: true,
 
-  messages: seedMessages,
+  messages: getInitialMessages(),
   commands: getInitialCommands(),
 
   setName: (name) => set((s) => ({ user: { ...s.user, name } })),
@@ -136,13 +142,18 @@ export const useAppStore = create<AppState>((set) => ({
   setTtsEnabled: (ttsEnabled) => set({ ttsEnabled }),
 
   addMessage: (m) =>
-    set((s) => ({
-      messages: [
+    set((s) => {
+      const messages = [
         ...s.messages,
         { ...m, id: Math.random().toString(36).slice(2), ts: Date.now() },
-      ],
-    })),
-  clearMessages: () => set({ messages: [] }),
+      ];
+      persistMessages(messages);
+      return { messages };
+    }),
+  clearMessages: () => {
+    persistMessages([]);
+    set({ messages: [] });
+  },
 
   upsertCommand: (c) =>
     set((s) => {

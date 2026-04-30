@@ -50,7 +50,7 @@
   Remind me to drink water -> it'll notify every 4 hours to drink water for next 24 hours
   Set a reminder to wish Rohan Happy Birthday on 11th of May -> it creates event in your calendar app, you can view calendar & it notifies you on 11th may
 
-## 8. Voice AI Chat
+## 8. Voice AI Chat ✅
 
 - Ask questions → get AI response
 - Optional TTS playback

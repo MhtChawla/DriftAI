@@ -56,6 +56,7 @@ export function HomeScreen({ navigation }: Props) {
   const parsedTranscriptRef = useRef('');
   const requestIdRef = useRef(0);
 
+  const addMessage = useAppStore(s => s.addMessage);
   const trimmedTranscript = transcript.trim();
   const state: MicState =
     isParsingIntent || isExecutingActions
@@ -112,6 +113,9 @@ export function HomeScreen({ navigation }: Props) {
 
         if (!result.actions.length) {
           setActionResults([]);
+          // save transcript + fallback AI message to chat
+          addMessage({ role: 'user', text: trimmedTranscript });
+          addMessage({ role: 'ai', text: "I heard you, but couldn't find an action for that." });
           return;
         }
 
@@ -130,7 +134,16 @@ export function HomeScreen({ navigation }: Props) {
 
         setActionResults(executionResults);
 
-        // chat responses are shown inline — no auto-navigation
+        // handleChat in actionEngine already saves user+ai messages for chat actions.
+        // For non-chat actions, save transcript + status as messages here.
+        const hasChat = result.actions.some(a => a.type === 'chat');
+        if (!hasChat) {
+          addMessage({ role: 'user', text: trimmedTranscript });
+          const statusText = executionResults.map(r => r.message).filter(Boolean).join('\n');
+          if (statusText) {
+            addMessage({ role: 'ai', text: statusText });
+          }
+        }
       } catch (error: any) {
         if (didCancel || requestIdRef.current !== requestId) {
           return;
@@ -138,10 +151,13 @@ export function HomeScreen({ navigation }: Props) {
 
         if (phase === 'parse') {
           setIntentError(error?.message || 'Failed to parse intent');
+          addMessage({ role: 'user', text: trimmedTranscript });
+          addMessage({ role: 'ai', text: `Error: ${error?.message || 'Failed to parse intent'}` });
         } else {
           const detail = error?.message || String(error) || 'Failed to execute action';
           console.error('[ActionEngine]', error);
           setActionError(detail);
+          addMessage({ role: 'ai', text: `Error: ${detail}` });
         }
       } finally {
         if (!didCancel && requestIdRef.current === requestId) {

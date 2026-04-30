@@ -10,32 +10,27 @@ import {
   KeyboardAvoidingView,
   Platform,
   InteractionManager,
+  Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { ChevronLeft, Mic, Send } from 'lucide-react-native';
+import { ChevronLeft, Mic, Send, Trash2 } from 'lucide-react-native';
 import { useThemeTokens } from '../hooks/useThemeTokens';
 import { useAppStore, type ChatMessage } from '../store/useAppStore';
 import { fonts, tokens } from '../theme/tokens';
 import { MonoLabel } from '../components/MonoLabel';
 import { TypingDots } from '../components/TypingDots';
+import { parseVoiceIntent } from '../utils/api/intentParser';
+import { executeActions } from '../engine/actionEngine';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
-function aiReply(input: string): string {
-  const l = input.toLowerCase();
-  if (l.includes('?')) return 'Good question. Want me to dig in, or give you a quick answer?';
-  if (l.includes('remind')) return "Reminder set. I'll nudge you 10 min before.";
-  if (l.includes('translate')) return 'Sure — paste the text or say it out loud.';
-  if (l.includes('weather')) return 'Looking up the forecast — give me a sec.';
-  return 'Got it. Anything else you want me to fold in?';
-}
-
 export function ChatScreen({ navigation }: Props) {
   const t = useThemeTokens();
   const messages = useAppStore((s) => s.messages);
   const addMessage = useAppStore((s) => s.addMessage);
+  const clearMessages = useAppStore((s) => s.clearMessages);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -51,17 +46,41 @@ export function ChatScreen({ navigation }: Props) {
     };
   }, [messages.length, typing]);
 
-  const send = useCallback(() => {
+  const send = useCallback(async () => {
     const v = input.trim();
     if (!v) return;
-    addMessage({ role: 'user', text: v });
     setInput('');
     setTyping(true);
-    setTimeout(() => {
+    try {
+      const result = await parseVoiceIntent(v);
+      if (result.actions.length) {
+        const hasChat = result.actions.some(a => a.type === 'chat');
+        const executionResults = await executeActions(result.actions);
+        // handleChat inside executeActions already calls addMessage for chat type.
+        // For non-chat actions, save transcript + status messages here.
+        if (!hasChat) {
+          addMessage({ role: 'user', text: v });
+          const statusText = executionResults.map(r => r.message).filter(Boolean).join('\n');
+          addMessage({ role: 'ai', text: statusText || 'Done.' });
+        }
+      } else {
+        addMessage({ role: 'user', text: v });
+        addMessage({ role: 'ai', text: "I heard you, but couldn't find an action for that." });
+      }
+    } catch (err: any) {
+      addMessage({ role: 'user', text: v });
+      addMessage({ role: 'ai', text: `Error: ${err?.message || 'Something went wrong'}` });
+    } finally {
       setTyping(false);
-      addMessage({ role: 'ai', text: aiReply(v) });
-    }, 1300 + Math.random() * 600);
+    }
   }, [input, addMessage]);
+
+  const confirmClear = useCallback(() => {
+    Alert.alert('Clear conversation', 'This will delete all messages.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: clearMessages },
+    ]);
+  }, [clearMessages]);
 
   return (
     <KeyboardAvoidingView
@@ -92,7 +111,12 @@ export function ChatScreen({ navigation }: Props) {
             ONLINE · GPT-VOICE
           </MonoLabel>
         </View>
-        <View style={{ width: 36 }} />
+        <Pressable
+          onPress={confirmClear}
+          style={[styles.backBtn, { backgroundColor: t.surface, borderColor: t.border }]}
+        >
+          <Trash2 size={18} color={t.textDim} />
+        </Pressable>
       </View>
 
       {/* messages */}
