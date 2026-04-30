@@ -22,9 +22,10 @@ export function SettingsScreen(_: Props) {
   const perms = useAppStore((s) => s.permissions);
   const { requestMic, requestContacts, requestNotifications, requestMedia } = usePermissions();
   const responseStyle = useAppStore((s) => s.responseStyle);
-
   const setResponseStyle = useAppStore((s) => s.setResponseStyle);
   const language = useAppStore((s) => s.language);
+  const ttsEnabled = useAppStore((s) => s.ttsEnabled);
+  const setTtsEnabled = useAppStore((s) => s.setTtsEnabled);
   const clearMessages = useAppStore((s) => s.clearMessages);
 
   const respOptions: { v: ResponseStyle; l: string }[] = [
@@ -112,6 +113,12 @@ export function SettingsScreen(_: Props) {
               })}
             </View>
           </View>
+          <ToggleRow
+            label="Voice responses (TTS)"
+            sub="Drif speaks AI answers aloud"
+            value={ttsEnabled}
+            onChange={setTtsEnabled}
+          />
           <NavRow label="Language" detail={language} isLast />
         </Section>
 

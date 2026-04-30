@@ -601,13 +601,54 @@ const handleRecurringReminder = async (action: IntentAction, plan: ReminderRecur
 };
 
 const handleChat = async (action: IntentAction) => {
-  const text = action.text ?? action.message ?? action.query;
+  const text = action.text ?? action.message ?? action.query ?? action.rawInput ?? '';
 
-  if (text) {
-    useAppStore.getState().addMessage({ role: 'user', text });
+  if (!text) {
+    return result(action, '');
   }
 
-  return result(action, 'Opened chat');
+  const store = useAppStore.getState();
+  store.addMessage({ role: 'user', text });
+
+  const styleMap: Record<string, string> = {
+    short: 'Reply in 1-2 sentences.',
+    balanced: 'Reply concisely in 2-3 sentences.',
+    detailed: 'Reply with a thorough explanation.',
+  };
+  const styleInstruction = styleMap[store.responseStyle] ?? styleMap.balanced;
+
+  const history = store.messages.slice(-12).map(m => ({
+    role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
+    content: m.text,
+  }));
+
+  const response = await createChatCompletion(
+    {
+      model: 'gpt-4o-mini',
+      temperature: 0.7,
+      max_tokens: 300,
+      messages: [
+        {
+          role: 'system',
+          content: `You are Drif, a friendly AI voice assistant. ${styleInstruction} Keep it conversational and natural.`,
+        },
+        ...history,
+        { role: 'user', content: text },
+      ],
+    },
+    OPENAI_API_KEY,
+  );
+
+  const aiText = response.choices[0]?.message.content?.trim() ?? '';
+
+  if (aiText) {
+    store.addMessage({ role: 'ai', text: aiText });
+    if (store.ttsEnabled) {
+      speak(aiText).catch(() => {});
+    }
+  }
+
+  return result(action, aiText);
 };
 
 const resolveDateISO = async (rawInput: string): Promise<string | null> => {

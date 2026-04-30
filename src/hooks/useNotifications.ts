@@ -31,7 +31,7 @@ export const useNotifications = (): UseNotificationsReturn => {
           id: 'default',
           name: 'Default Channel',
           importance: AndroidImportance.HIGH,
-          sound: 'default',
+          sound: 'none',
         });
 
         // Listen to foreground events
@@ -68,7 +68,6 @@ export const useNotifications = (): UseNotificationsReturn => {
           android: {
             channelId: 'default',
             smallIcon: 'ic_launcher',
-            sound: 'default',
             pressAction: {
               id: 'default',
             },
@@ -94,7 +93,6 @@ export const useNotifications = (): UseNotificationsReturn => {
             android: {
               channelId: 'default',
               smallIcon: 'ic_launcher',
-              sound: 'default',
             },
             data: payload.data || {},
           },

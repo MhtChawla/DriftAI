@@ -31,6 +31,8 @@ export type Permissions = {
   media: boolean;
 };
 
+export type TTSEnabled = boolean;
+
 export type AppState = {
   // API / loading / error
   apiKey: string | null;
@@ -51,6 +53,7 @@ export type AppState = {
   permissions: Permissions;
   responseStyle: ResponseStyle;
   language: string;
+  ttsEnabled: boolean;
 
   // Chat & commands
   messages: ChatMessage[];
@@ -64,6 +67,7 @@ export type AppState = {
   setPermission: (k: keyof Permissions, v: boolean) => void;
   setResponseStyle: (s: ResponseStyle) => void;
   setLanguage: (l: string) => void;
+  setTtsEnabled: (v: boolean) => void;
 
   addMessage: (m: Omit<ChatMessage, 'id' | 'ts'>) => void;
   clearMessages: () => void;
@@ -117,6 +121,7 @@ export const useAppStore = create<AppState>((set) => ({
   permissions: { mic: true, contacts: true, notifications: false, media: false },
   responseStyle: 'balanced',
   language: 'English (US)',
+  ttsEnabled: true,
 
   messages: seedMessages,
   commands: getInitialCommands(),
@@ -128,6 +133,7 @@ export const useAppStore = create<AppState>((set) => ({
   setPermission: (k, v) => set((s) => ({ permissions: { ...s.permissions, [k]: v } })),
   setResponseStyle: (responseStyle) => set({ responseStyle }),
   setLanguage: (language) => set({ language }),
+  setTtsEnabled: (ttsEnabled) => set({ ttsEnabled }),
 
   addMessage: (m) =>
     set((s) => ({

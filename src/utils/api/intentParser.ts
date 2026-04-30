@@ -39,7 +39,7 @@ export type IntentParseResult = {
 };
 
 const SYSTEM_PROMPT = `
-You are an AI intent parser for a mobile assistant.
+You are an AI intent parser for a mobile assistant named Drif.
 
 Convert user input into STRICT JSON.
 
@@ -70,10 +70,30 @@ Rules:
 These are the 10 supported atomic intent types:
 ${SUPPORTED_INTENTS.map((intent) => `- ${intent}`).join('\n')}
 
-Multi-step commands are represented by returning multiple ordered actions in
-the actions array.
+CRITICAL RULES FOR CHOOSING THE RIGHT TYPE:
 
-If multiple tasks -> return multiple actions.
+- Use "chat" for ANY general question, fact lookup, knowledge query, or conversational request that does NOT map to a specific device action. When in doubt, use "chat".
+  Examples that MUST be "chat": "what is the capital of Italy", "who invented the telephone", "explain photosynthesis", "what time is it in Tokyo", "tell me a joke", "what's 15% of 200", "how are you", "what does CEO mean"
+
+- Use "custom_command" ONLY when the user explicitly says a command name or phrase that matches one of their saved custom commands. NEVER use "custom_command" for general questions.
+
+- Use "translate" ONLY when the user explicitly asks to translate text into another language.
+
+- Use "send_whatsapp" ONLY when the user asks to send a WhatsApp message to someone.
+
+- Use "call_contact" ONLY when the user asks to call someone.
+
+- Use "draft_email" ONLY when the user asks to write or send an email.
+
+- Use "create_reminder" ONLY when the user asks to be reminded of something.
+
+- Use "open_app" ONLY when the user asks to open a specific app.
+
+- Use "instagram_post" ONLY when the user asks to post on Instagram.
+
+- Use "gallery_search" ONLY when the user asks to find or view photos.
+
+Multi-step commands are represented by returning multiple ordered actions in the actions array.
 
 Examples:
 
@@ -96,6 +116,50 @@ Output:
     {
       "type": "call_contact",
       "contact": "mom"
+    }
+  ]
+}
+
+Input: "what is the capital of Italy"
+Output:
+{
+  "actions": [
+    {
+      "type": "chat",
+      "text": "what is the capital of Italy"
+    }
+  ]
+}
+
+Input: "who is Elon Musk"
+Output:
+{
+  "actions": [
+    {
+      "type": "chat",
+      "text": "who is Elon Musk"
+    }
+  ]
+}
+
+Input: "tell me a joke"
+Output:
+{
+  "actions": [
+    {
+      "type": "chat",
+      "text": "tell me a joke"
+    }
+  ]
+}
+
+Input: "what's the weather like today"
+Output:
+{
+  "actions": [
+    {
+      "type": "chat",
+      "text": "what's the weather like today"
     }
   ]
 }

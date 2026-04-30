@@ -130,9 +130,7 @@ export function HomeScreen({ navigation }: Props) {
 
         setActionResults(executionResults);
 
-        if (result.actions.some(action => action.type === 'chat')) {
-          navigation.navigate('Chat');
-        }
+        // chat responses are shown inline — no auto-navigation
       } catch (error: any) {
         if (didCancel || requestIdRef.current !== requestId) {
           return;
@@ -288,36 +286,69 @@ export function HomeScreen({ navigation }: Props) {
               )}
             </View>
           )}
-          {(isExecutingActions || actionResults || actionError) && (
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: t.surface, borderColor: t.border },
-              ]}
-            >
-              <View style={styles.cardHeader}>
-                <MonoLabel style={{ fontSize: 9.5 }}>
-                  AI · ACTION STATUS
-                </MonoLabel>
-                {isExecutingActions && (
-                  <ActivityIndicator size="small" color={tokens.accent1} />
+          {(isExecutingActions || actionResults || actionError) && (() => {
+            const chatResult = actionResults?.find(r => r.type === 'chat');
+            const nonChatResults = actionResults?.filter(r => r.type !== 'chat') ?? [];
+            const isChatOnly = intentResult?.actions.every(a => a.type === 'chat');
+
+            return (
+              <>
+                {/* AI voice response card for chat */}
+                {(isExecutingActions && isChatOnly || chatResult) && (
+                  <View
+                    style={[
+                      styles.card,
+                      { backgroundColor: t.surface2, borderColor: tokens.accent1 + '44', borderWidth: 1.5 },
+                    ]}
+                  >
+                    <View style={styles.cardHeader}>
+                      <MonoLabel style={{ fontSize: 9.5, color: tokens.accent1 }}>
+                        DRIF · RESPONSE
+                      </MonoLabel>
+                      {isExecutingActions && isChatOnly && (
+                        <ActivityIndicator size="small" color={tokens.accent1} />
+                      )}
+                    </View>
+                    <Text style={[styles.cardText, { color: t.text }]}>
+                      {chatResult ? chatResult.message || '...' : 'Thinking...'}
+                    </Text>
+                  </View>
                 )}
-              </View>
-              {actionError ? (
-                <Text style={[styles.cardText, { color: tokens.danger }]}>
-                  {actionError}
-                </Text>
-              ) : (
-                <Text style={[styles.cardText, { color: t.text }]}>
-                  {actionResults
-                    ? actionResults.length
-                      ? actionResults.map(result => result.message).join('\n')
-                      : 'No executable actions found'
-                    : 'Executing...'}
-                </Text>
-              )}
-            </View>
-          )}
+
+                {/* Status card for non-chat actions */}
+                {(!isChatOnly || nonChatResults.length > 0 || (actionError && !chatResult)) && (
+                  <View
+                    style={[
+                      styles.card,
+                      { backgroundColor: t.surface, borderColor: t.border },
+                    ]}
+                  >
+                    <View style={styles.cardHeader}>
+                      <MonoLabel style={{ fontSize: 9.5 }}>
+                        AI · ACTION STATUS
+                      </MonoLabel>
+                      {isExecutingActions && !isChatOnly && (
+                        <ActivityIndicator size="small" color={tokens.accent1} />
+                      )}
+                    </View>
+                    {actionError ? (
+                      <Text style={[styles.cardText, { color: tokens.danger }]}>
+                        {actionError}
+                      </Text>
+                    ) : (
+                      <Text style={[styles.cardText, { color: t.text }]}>
+                        {actionResults
+                          ? nonChatResults.length
+                            ? nonChatResults.map(r => r.message).join('\n')
+                            : 'No executable actions found'
+                          : 'Executing...'}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </>
+            );
+          })()}
           {!transcript && state === 'idle' && (
             <View style={{ alignItems: 'center', opacity: 0.5 }}>
               <MonoLabel style={{ fontSize: 10 }}>
