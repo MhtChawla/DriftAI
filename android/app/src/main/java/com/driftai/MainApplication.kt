@@ -20,6 +20,7 @@ class MainApplication : Application(), ReactApplication {
           add(TextToSpeechPackage())
           add(CalendarPackage())
           add(GalleryPackage())
+          add(AutomationPackage())
         },
     )
   }

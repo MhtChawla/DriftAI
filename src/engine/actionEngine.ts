@@ -643,18 +643,24 @@ const handleCustomCommand = async (action: IntentAction) => {
     throw new Error(`Custom command not found: ${commandName || 'unknown'}`);
   }
 
-  for (const commandAction of command.actions) {
-    await executeCommandAction(commandAction);
+  const messages: string[] = [];
+  const orderedActions = [
+    ...command.actions.filter(commandAction => !isExternalCommandAction(commandAction)),
+    ...command.actions.filter(isExternalCommandAction),
+  ];
+
+  for (const commandAction of orderedActions) {
+    messages.push(await executeCommandAction(commandAction));
   }
 
-  return result(action, `Ran ${command.name}`);
+  return result(action, [`Ran ${command.name}`, ...messages].join('\n'));
 };
 
 const executeCommandAction = async (action: CommandAction) => {
   switch (action.key) {
     case 'open':
       await handleOpenApp({ type: 'open_app', app: action.detail });
-      return;
+      return `Opened ${action.detail}`;
 
     case 'msg':
       await Share.open({
@@ -662,14 +668,11 @@ const executeCommandAction = async (action: CommandAction) => {
         message: action.detail,
         failOnCancel: false,
       });
-      return;
+      return `Shared ${action.detail}`;
 
     case 'timer':
-      await createReminderNotification(
-        action.detail,
-        parseDurationTimestamp(action.detail) ?? Date.now() + 60000,
-      );
-      return;
+      await startDeviceTimer(action.detail);
+      return `Started timer: ${action.detail}`;
 
     case 'play':
       await openFirstUrl(
@@ -681,29 +684,87 @@ const executeCommandAction = async (action: CommandAction) => {
         ],
         'Spotify',
       );
-      return;
+      return `Opened Spotify for ${action.detail}`;
 
     case 'set':
-      await handleSettingCommand(action.detail);
-      return;
+      return handleSettingCommand(action.detail);
 
     default:
       return assertNeverCommand(action.key);
   }
 };
 
+const isExternalCommandAction = (action: CommandAction) =>
+  action.key === 'open' || action.key === 'play';
+
 const handleSettingCommand = async (detail: string) => {
   const normalized = normalizeComparable(detail);
 
-  if (normalized.includes('alarm') || normalized.includes('timer')) {
-    await openFirstUrl(
-      ['clock-alarm://', 'https://clock.google.com/'],
-      'Clock',
-    );
-    return;
+  if (normalized.includes('light') || normalized.includes('brightness')) {
+    if (Platform.OS === 'android' && NativeModules.AutomationModule) {
+      const brightnessPercent = parsePercent(detail) ?? 20;
+      const changed = await NativeModules.AutomationModule.setBrightness(brightnessPercent);
+
+      if (!changed) {
+        return 'Opened modify system settings access — allow DriftAI, then run Wind Down again';
+      }
+
+      return `Brightness set to ${brightnessPercent}%`;
+    }
+
+    await Linking.openSettings();
+    return `Opened settings for ${detail}`;
+  }
+
+  if (normalized.includes('dnd') || normalized.includes('do not disturb')) {
+    if (Platform.OS === 'android' && NativeModules.AutomationModule) {
+      const enabled = !/\b(off|disable|disabled)\b/.test(normalized);
+      const changed = await NativeModules.AutomationModule.setDoNotDisturb(enabled);
+
+      if (!changed) {
+        return 'Opened DND access settings — allow DriftAI, then run the command again';
+      }
+
+      return enabled ? 'DND enabled' : 'DND disabled';
+    }
+
+    await Linking.openSettings();
+    return 'Opened settings for DND';
+  }
+
+  if (normalized.includes('alarm')) {
+    const alarm = parseAlarmTime(detail);
+
+    if (Platform.OS === 'android' && NativeModules.AutomationModule && alarm) {
+      await NativeModules.AutomationModule.setAlarm(alarm.hour, alarm.minute, detail);
+      return `Set alarm: ${formatAlarmTime(alarm.hour, alarm.minute)}`;
+    }
+
+    await openFirstUrl(['clock-alarm://', 'https://clock.google.com/'], 'Clock');
+    return 'Opened Clock for alarm';
+  }
+
+  if (normalized.includes('timer')) {
+    await openFirstUrl(['clock-alarm://', 'https://clock.google.com/'], 'Clock');
+    return 'Opened Clock for timer';
   }
 
   await Linking.openSettings();
+  return 'Opened settings';
+};
+
+const startDeviceTimer = async (detail: string) => {
+  const seconds = parseDurationSeconds(detail);
+
+  if (Platform.OS === 'android' && NativeModules.AutomationModule && seconds) {
+    await NativeModules.AutomationModule.startTimer(seconds, detail);
+    return;
+  }
+
+  await createReminderNotification(
+    detail,
+    parseDurationTimestamp(detail) ?? Date.now() + 60000,
+  );
 };
 
 const ensureNotifeeChannel = async () => {
@@ -889,6 +950,16 @@ const APP_URLS: Record<string, string[]> = {
 
 
 const parseDurationTimestamp = (value: string) => {
+  const seconds = parseDurationSeconds(value);
+
+  if (!seconds) {
+    return null;
+  }
+
+  return Date.now() + seconds * 1000;
+};
+
+const parseDurationSeconds = (value: string) => {
   const match = normalizeComparable(value).match(
     /\bin\s+(\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs|day|days)\b|^(\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs|day|days)\b/,
   );
@@ -901,12 +972,53 @@ const parseDurationTimestamp = (value: string) => {
   const unit = match[2] ?? match[4];
   const multiplier =
     unit.startsWith('hour') || unit.startsWith('hr')
-      ? 60 * 60 * 1000
+      ? 60 * 60
       : unit.startsWith('day')
-      ? 24 * 60 * 60 * 1000
-      : 60 * 1000;
+      ? 24 * 60 * 60
+      : 60;
 
-  return Date.now() + amount * multiplier;
+  return amount * multiplier;
+};
+
+const parseAlarmTime = (value: string) => {
+  const match = normalizeComparable(value).match(
+    /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/,
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? 0);
+  const meridiem = match[3];
+
+  if (meridiem === 'pm' && hour < 12) {
+    hour += 12;
+  }
+
+  if (meridiem === 'am' && hour === 12) {
+    hour = 0;
+  }
+
+  if (hour > 23 || minute > 59) {
+    return null;
+  }
+
+  return { hour, minute };
+};
+
+const formatAlarmTime = (hour: number, minute: number) =>
+  `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+
+const parsePercent = (value: string) => {
+  const percent = Number(normalizeComparable(value).match(/\b(\d{1,3})\b/)?.[1]);
+
+  if (!Number.isFinite(percent)) {
+    return null;
+  }
+
+  return Math.min(100, Math.max(1, percent));
 };
 
 

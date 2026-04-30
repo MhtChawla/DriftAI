@@ -1,6 +1,6 @@
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
 
-const storage = new MMKV({
+const storage = createMMKV({
   id: 'drift-ai-storage',
 });
 
@@ -26,7 +26,7 @@ export const getItem = <T = any>(key: string): T | null => {
 
 export const removeItem = (key: string): boolean => {
   try {
-    storage.delete(key);
+    storage.remove(key);
     return true;
   } catch (error) {
     console.error('MMKV removeItem error:', error);

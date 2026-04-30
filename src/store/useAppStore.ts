@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getItem, setItem } from '../utils/storage/mmkvStorage';
 
 export type Theme = 'dark' | 'light';
 export type VizStyle = 'rings' | 'bars' | 'orb';
@@ -74,37 +75,13 @@ export type AppState = {
 
 const seedCommands: Command[] = [
   {
-    id: 'gym',
-    name: 'Gym Mode',
-    phrase: "I'm heading to the gym",
-    desc: 'Open Spotify · DND on · Start 60-min timer',
-    actions: [
-      { key: 'open', detail: 'Spotify' },
-      { key: 'set', detail: 'DND on' },
-      { key: 'timer', detail: '60 min' },
-    ],
-    enabled: true,
-  },
-  {
-    id: 'wind-down',
-    name: 'Wind Down',
-    phrase: 'Wind down',
-    desc: 'Dim lights · Play sleep playlist · Set 7am alarm',
-    actions: [
-      { key: 'set', detail: 'Lights 20%' },
-      { key: 'play', detail: 'Sleep playlist' },
-      { key: 'set', detail: 'Alarm 7:00' },
-    ],
-    enabled: true,
-  },
-  {
     id: 'standup',
     name: 'Standup Brief',
     phrase: 'Standup brief',
-    desc: 'Read calendar · Summarize Slack · Open Linear',
+    desc: 'Open calendar · Open Slack · Open Linear',
     actions: [
       { key: 'open', detail: 'Calendar' },
-      { key: 'msg', detail: 'Slack summary' },
+      { key: 'open', detail: 'Slack' },
       { key: 'open', detail: 'Linear' },
     ],
     enabled: true,
@@ -114,6 +91,14 @@ const seedCommands: Command[] = [
 const seedMessages: ChatMessage[] = [
   { id: '1', role: 'ai', text: "Hey Mohit. What's on your mind?", ts: Date.now() - 60000 },
 ];
+
+const COMMANDS_STORAGE_KEY = 'commands';
+
+const getInitialCommands = () => getItem<Command[]>(COMMANDS_STORAGE_KEY) ?? seedCommands;
+
+const persistCommands = (commands: Command[]) => {
+  setItem(COMMANDS_STORAGE_KEY, commands);
+};
 
 export const useAppStore = create<AppState>((set) => ({
   apiKey: null,
@@ -134,7 +119,7 @@ export const useAppStore = create<AppState>((set) => ({
   language: 'English (US)',
 
   messages: seedMessages,
-  commands: seedCommands,
+  commands: getInitialCommands(),
 
   setName: (name) => set((s) => ({ user: { ...s.user, name } })),
   setTheme: (theme) => set({ theme }),
@@ -156,15 +141,24 @@ export const useAppStore = create<AppState>((set) => ({
   upsertCommand: (c) =>
     set((s) => {
       const exists = s.commands.find((x) => x.id === c.id);
-      return exists
-        ? { commands: s.commands.map((x) => (x.id === c.id ? c : x)) }
-        : { commands: [...s.commands, c] };
+      const commands = exists
+        ? s.commands.map((x) => (x.id === c.id ? c : x))
+        : [...s.commands, c];
+      persistCommands(commands);
+      return { commands };
     }),
-  deleteCommand: (id) => set((s) => ({ commands: s.commands.filter((c) => c.id !== id) })),
+  deleteCommand: (id) =>
+    set((s) => {
+      const commands = s.commands.filter((c) => c.id !== id);
+      persistCommands(commands);
+      return { commands };
+    }),
   toggleCommand: (id) =>
-    set((s) => ({
-      commands: s.commands.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c)),
-    })),
+    set((s) => {
+      const commands = s.commands.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c));
+      persistCommands(commands);
+      return { commands };
+    }),
 }));
 
 export const useTheme = () => useAppStore((s) => s.theme);
