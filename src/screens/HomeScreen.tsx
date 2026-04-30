@@ -61,8 +61,8 @@ export function HomeScreen({ navigation }: Props) {
     isParsingIntent || isExecutingActions
       ? 'processing'
       : isListening
-      ? 'listening'
-      : 'idle';
+        ? 'listening'
+        : 'idle';
 
   useEffect(() => {
     if (isListening) {
@@ -213,7 +213,6 @@ export function HomeScreen({ navigation }: Props) {
             <GradientText style={[styles.greeting, { height: 50 }]}>
               {name}
             </GradientText>
-            .
           </View>
           <Text
             style={[

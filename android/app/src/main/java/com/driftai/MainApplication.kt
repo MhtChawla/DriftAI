@@ -19,6 +19,7 @@ class MainApplication : Application(), ReactApplication {
           add(PhoneCallPackage())
           add(TextToSpeechPackage())
           add(CalendarPackage())
+          add(GalleryPackage())
         },
     )
   }

@@ -431,17 +431,47 @@ const handleChat = async (action: IntentAction) => {
   return result(action, 'Opened chat');
 };
 
-const handleGallerySearch = async (action: IntentAction) => {
-  const query = action.query ?? action.text;
-  const url = query
-    ? `https://photos.google.com/search/${encodeURIComponent(query)}`
-    : 'https://photos.google.com/';
+const resolveDateISO = async (rawInput: string): Promise<string | null> => {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-  await Linking.openURL(url);
+  const response = await createChatCompletion(
+    {
+      model: 'gpt-4o-mini',
+      temperature: 0,
+      max_tokens: 60,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `Today is ${today}. If the user refers to a specific date, extract it.
+Return JSON: { "date": "YYYY-MM-DD" } for a specific day, or { "date": null } if no specific date is mentioned.
+Use the current year unless another year is implied.`,
+        },
+        { role: 'user', content: rawInput },
+      ],
+    },
+    OPENAI_API_KEY,
+  );
+
+  const parsed = JSON.parse(response.choices[0]?.message.content ?? '{}') as { date?: string | null };
+  return parsed.date?.trim() || null;
+};
+
+const handleGallerySearch = async (action: IntentAction) => {
+  const rawInput = action.rawInput ?? action.query ?? action.text ?? '';
+  const dateISO = rawInput ? await resolveDateISO(rawInput) : null;
+
+  if (Platform.OS === 'android' && NativeModules.GalleryModule) {
+    await NativeModules.GalleryModule.openAtDate(dateISO ?? '');
+  } else {
+    // iOS — open Photos app (no date deep-link available)
+    await Linking.openURL('photos-redirect://');
+  }
 
   return result(
     action,
-    query ? `Opened gallery search for ${query}` : 'Opened gallery',
+    dateISO ? `Opened gallery for ${dateISO}` : 'Opened gallery',
   );
 };
 
@@ -686,8 +716,8 @@ const APP_URLS: Record<string, string[]> = {
     Platform.OS === 'ios' ? 'http://maps.apple.com/' : 'geo:0,0?q=',
     'https://maps.google.com/',
   ],
-  photos: ['googlephotos://', 'https://photos.google.com/'],
-  gallery: ['https://photos.google.com/'],
+  photos: ['googlephotos://'],
+  gallery: ['googlephotos://'],
   calendar: ['calshow://', 'https://calendar.google.com/'],
   slack: ['slack://open', 'https://slack.com/'],
   linear: ['linear://', 'https://linear.app/'],

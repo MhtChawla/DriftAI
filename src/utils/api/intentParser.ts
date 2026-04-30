@@ -551,10 +551,18 @@ const splitSequentialCommands = (text: string) => {
 };
 
 const parseLocalIntent = (text: string): IntentParseResult | null => {
+  const withRawInput = (actions: IntentAction[]) => {
+    actions.forEach(action => {
+      action.rawInput = text;
+    });
+
+    return { actions };
+  };
+
   const directCustomCommand = parseCustomCommand(text);
 
   if (directCustomCommand) {
-    return { actions: [directCustomCommand] };
+    return withRawInput([directCustomCommand]);
   }
 
   const parts = splitSequentialCommands(text);
@@ -563,7 +571,7 @@ const parseLocalIntent = (text: string): IntentParseResult | null => {
     const actions = parts.map(parseLocalSingleIntent);
 
     if (actions.every(Boolean)) {
-      return { actions: actions as IntentAction[] };
+      return withRawInput(actions as IntentAction[]);
     }
   }
 
@@ -573,7 +581,7 @@ const parseLocalIntent = (text: string): IntentParseResult | null => {
     return null;
   }
 
-  return { actions: [action] };
+  return withRawInput([action]);
 };
 
 const getAssistantContent = (content: string | null | undefined) => {
