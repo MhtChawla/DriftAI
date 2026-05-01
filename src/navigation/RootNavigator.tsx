@@ -14,6 +14,7 @@ import { ChatScreen } from '../screens/ChatScreen';
 import { CommandsScreen } from '../screens/CommandsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
+import { FeaturesScreen } from '../screens/FeaturesScreen';
 import { useThemeTokens } from '../hooks/useThemeTokens';
 import { tokens, fonts } from '../theme/tokens';
 
@@ -27,6 +28,7 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabsParamList>;
   Chat: undefined;
   PrivacyPolicy: undefined;
+  Features: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -107,6 +109,11 @@ export function RootNavigator() {
         <Stack.Screen
           name="PrivacyPolicy"
           component={PrivacyPolicyScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="Features"
+          component={FeaturesScreen}
           options={{ animation: 'slide_from_right' }}
         />
       </Stack.Navigator>

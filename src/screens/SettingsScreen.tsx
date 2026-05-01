@@ -71,7 +71,7 @@ export function SettingsScreen({ navigation }: Props) {
             </Text>
           </View>
           <View style={styles.proBadge}>
-            <Text style={styles.proBadgeText}>PRO</Text>
+            <Text style={styles.proBadgeText}>BETA</Text>
           </View>
         </LinearGradient>
 
@@ -118,7 +118,8 @@ export function SettingsScreen({ navigation }: Props) {
         <Section label="ABOUT">
           <DetailRow label="Version" detail="1.0.0" />
           <DetailRow label="Developer" detail="Mohit Chawla" />
-          <NavRow label="Privacy policy" onPress={() => navigation.navigate('PrivacyPolicy')} isLast />
+          <NavRow label="Privacy policy" onPress={() => navigation.navigate('PrivacyPolicy')} />
+          <NavRow label="Features" onPress={() => navigation.navigate('Features')} isLast />
         </Section>
 
         <Text
