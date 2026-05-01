@@ -1,5 +1,4 @@
-import { OPENAI_API_KEY } from '../../../secrets';
-import { useAppStore } from '../../store/useAppStore';
+import { getRequiredOpenAIKey, useAppStore } from '../../store/useAppStore';
 import { createChatCompletion } from './openaiClient';
 
 export const SUPPORTED_INTENTS = [
@@ -218,16 +217,6 @@ const parseIntentJson = (content: string): IntentParseResult => {
   return parsed;
 };
 
-const getOpenAIKey = () => {
-  const key = OPENAI_API_KEY?.trim();
-
-  if (!key || !key.startsWith('sk-')) {
-    throw new Error('Missing OPENAI_API_KEY in secrets.ts');
-  }
-
-  return key;
-};
-
 export const parseVoiceIntent = async (input: string): Promise<IntentParseResult> => {
   const text = input.trim();
 
@@ -257,7 +246,7 @@ export const parseVoiceIntent = async (input: string): Promise<IntentParseResult
         },
       ],
     },
-    getOpenAIKey(),
+    getRequiredOpenAIKey(),
   );
 
   const result = parseIntentJson(getAssistantContent(response.choices[0]?.message.content));

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { getItem, setItem } from '../utils/storage/mmkvStorage';
+import { getItem, removeItem, setItem } from '../utils/storage/mmkvStorage';
+import { deleteOpenAIKey, loadOpenAIKey, saveOpenAIKey } from '../utils/storage/apiKeyStorage';
 
 export type Theme = 'dark' | 'light';
 export type VizStyle = 'rings' | 'bars' | 'orb';
@@ -36,10 +37,12 @@ export type TTSEnabled = boolean;
 export type AppState = {
   // API / loading / error
   apiKey: string | null;
+  apiKeyHydrated: boolean;
   isLoading: boolean;
   error: string | null;
-  setApiKey: (key: string) => void;
-  clearApiKey: () => void;
+  hydrateApiKey: () => Promise<void>;
+  setApiKey: (key: string) => Promise<void>;
+  clearApiKey: () => Promise<void>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
@@ -94,16 +97,19 @@ const seedCommands: Command[] = [
 ];
 
 const seedMessages: ChatMessage[] = [
-  { id: '1', role: 'ai', text: "Hey Mohit. What's on your mind?", ts: Date.now() - 60000 },
+  { id: '1', role: 'ai', text: "Hey. What's on your mind?", ts: Date.now() - 60000 },
 ];
 
 const COMMANDS_STORAGE_KEY = 'commands';
 const MESSAGES_STORAGE_KEY = 'messages';
 const PERMISSIONS_STORAGE_KEY = 'permissions';
 const COMMAND_COUNT_STORAGE_KEY = 'command_count';
+const USER_NAME_STORAGE_KEY = 'user_name';
+const API_KEY_STORAGE_KEY = 'openai_api_key';
 
 const getInitialCommands = () => getItem<Command[]>(COMMANDS_STORAGE_KEY) ?? seedCommands;
 const getInitialMessages = () => getItem<ChatMessage[]>(MESSAGES_STORAGE_KEY) ?? seedMessages;
+const getInitialName = () => getItem<string>(USER_NAME_STORAGE_KEY) ?? '';
 const getInitialCommandCount = () =>
   getItem<number>(COMMAND_COUNT_STORAGE_KEY) ??
   getInitialMessages().filter((message) => message.role === 'user').length;
@@ -133,14 +139,41 @@ const persistCommandCount = (count: number) => {
 
 export const useAppStore = create<AppState>((set) => ({
   apiKey: null,
+  apiKeyHydrated: false,
   isLoading: false,
   error: null,
-  setApiKey: (key) => set({ apiKey: key }),
-  clearApiKey: () => set({ apiKey: null }),
+  hydrateApiKey: async () => {
+    try {
+      const keychainKey = await loadOpenAIKey();
+      const mmkvKey = getItem<string>(API_KEY_STORAGE_KEY);
+      const key = keychainKey ?? mmkvKey;
+
+      if (!keychainKey && mmkvKey) {
+        await saveOpenAIKey(mmkvKey);
+        removeItem(API_KEY_STORAGE_KEY);
+      }
+
+      set({ apiKey: key, apiKeyHydrated: true });
+    } catch (error) {
+      console.error('OpenAI API key hydration error:', error);
+      set({ apiKey: null, apiKeyHydrated: true });
+    }
+  },
+  setApiKey: async (key) => {
+    const trimmed = key.trim();
+    await saveOpenAIKey(trimmed);
+    removeItem(API_KEY_STORAGE_KEY);
+    set({ apiKey: trimmed });
+  },
+  clearApiKey: async () => {
+    await deleteOpenAIKey();
+    removeItem(API_KEY_STORAGE_KEY);
+    set({ apiKey: null });
+  },
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
 
-  user: { name: 'Mohit' },
+  user: { name: getInitialName() },
   theme: 'dark',
   vizStyle: 'rings',
   accentHue: 255,
@@ -154,7 +187,11 @@ export const useAppStore = create<AppState>((set) => ({
   commands: getInitialCommands(),
   commandCount: getInitialCommandCount(),
 
-  setName: (name) => set((s) => ({ user: { ...s.user, name } })),
+  setName: (name) => {
+    const trimmed = name.trim();
+    setItem(USER_NAME_STORAGE_KEY, trimmed);
+    set((s) => ({ user: { ...s.user, name: trimmed } }));
+  },
   setTheme: (theme) => set({ theme }),
   setVizStyle: (vizStyle) => set({ vizStyle }),
   setAccentHue: (accentHue) => set({ accentHue }),
@@ -208,3 +245,17 @@ export const useAppStore = create<AppState>((set) => ({
 }));
 
 export const useTheme = () => useAppStore((s) => s.theme);
+
+export const getRequiredOpenAIKey = () => {
+  const key = useAppStore.getState().apiKey?.trim();
+
+  if (!key) {
+    throw new Error('Add your OpenAI API key to continue.');
+  }
+
+  if (!key.startsWith('sk-')) {
+    throw new Error('OpenAI API key looks invalid. Paste a key that starts with sk-.');
+  }
+
+  return key;
+};

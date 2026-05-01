@@ -53,7 +53,7 @@ const getOpenAIErrorMessage = (error: any) => {
   const apiMessage = error?.response?.data?.error?.message;
 
   if (status === 401) {
-    return 'OpenAI authentication failed. Replace OPENAI_API_KEY in secrets.ts with an active API key.';
+    return 'OpenAI authentication failed. Update your saved API key in DriftAI.';
   }
 
   if (status) {

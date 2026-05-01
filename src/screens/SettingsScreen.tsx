@@ -23,6 +23,7 @@ type Props = CompositeScreenProps<
 export function SettingsScreen({ navigation }: Props) {
   const t = useThemeTokens();
   const name = useAppStore((s) => s.user.name);
+  const apiKey = useAppStore((s) => s.apiKey);
   const commandCount = useAppStore((s) => s.commandCount);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
@@ -31,6 +32,7 @@ export function SettingsScreen({ navigation }: Props) {
   const ttsEnabled = useAppStore((s) => s.ttsEnabled);
   const setTtsEnabled = useAppStore((s) => s.setTtsEnabled);
   const clearMessages = useAppStore((s) => s.clearMessages);
+  const maskedApiKey = maskApiKey(apiKey);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -83,7 +85,7 @@ export function SettingsScreen({ navigation }: Props) {
         </Section>
 
         <Section label="AI">
-          <DetailRow label="API Key" detail="243248***3984239" />
+          <DetailRow label="API Key" detail={maskedApiKey} />
           <ToggleRow
             label="Voice responses (TTS)"
             sub="Drif speaks AI answers aloud"
@@ -138,6 +140,19 @@ export function SettingsScreen({ navigation }: Props) {
     </View>
   );
 }
+
+const maskApiKey = (key: string | null) => {
+  if (!key) {
+    return 'Not set';
+  }
+
+  const trimmed = key.trim();
+  if (trimmed.length <= 12) {
+    return `${trimmed.slice(0, 3)}****${trimmed.slice(-2)}`;
+  }
+
+  return `${trimmed.slice(0, 7)}****${trimmed.slice(-5)}`;
+};
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   const t = useThemeTokens();

@@ -4,9 +4,8 @@ import Contacts from 'react-native-contacts';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Share, { Social } from 'react-native-share';
 import type { Contact } from 'react-native-contacts';
-import { useAppStore, type CommandAction } from '../store/useAppStore';
+import { getRequiredOpenAIKey, useAppStore, type CommandAction } from '../store/useAppStore';
 import type { IntentAction } from '../utils/api/intentParser';
-import { OPENAI_API_KEY } from '../../secrets';
 import { createChatCompletion } from '../utils/api/openaiClient';
 import { speak } from '../hooks/useTTS';
 
@@ -143,7 +142,7 @@ Return ONLY valid JSON with this schema: { "subject": string, "body": string }
         },
       ],
     },
-    OPENAI_API_KEY,
+    getRequiredOpenAIKey(),
   );
 
   const parsed = JSON.parse(response.choices[0]?.message.content ?? '{}') as {
@@ -338,7 +337,7 @@ Keep the caption natural and short. Mention visible subject/mood only when clear
           },
         ],
       },
-      OPENAI_API_KEY,
+      getRequiredOpenAIKey(),
     );
 
     const parsed = JSON.parse(response.choices[0]?.message.content ?? '{}') as {
@@ -383,7 +382,7 @@ const handleTranslate = async (action: IntentAction) => {
         { role: 'user', content: text },
       ],
     },
-    OPENAI_API_KEY,
+    getRequiredOpenAIKey(),
   );
 
   const translated = response.choices[0]?.message.content?.trim();
@@ -504,7 +503,7 @@ Be smart — "drink water" with no time specified means every 2 hours for 8 hour
         { role: 'user', content: rawTime ? `${rawText} (time context: ${rawTime})` : rawText },
       ],
     },
-    OPENAI_API_KEY,
+    getRequiredOpenAIKey(),
   );
 
   const plan = JSON.parse(response.choices[0]?.message.content ?? '{}') as ReminderPlan;
@@ -636,7 +635,7 @@ const handleChat = async (action: IntentAction) => {
         { role: 'user', content: text },
       ],
     },
-    OPENAI_API_KEY,
+    getRequiredOpenAIKey(),
   );
 
   const aiText = response.choices[0]?.message.content?.trim() ?? '';
@@ -671,7 +670,7 @@ Use the current year unless another year is implied.`,
         { role: 'user', content: rawInput },
       ],
     },
-    OPENAI_API_KEY,
+    getRequiredOpenAIKey(),
   );
 
   const parsed = JSON.parse(response.choices[0]?.message.content ?? '{}') as { date?: string | null };

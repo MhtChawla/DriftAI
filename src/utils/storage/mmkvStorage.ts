@@ -6,7 +6,7 @@ const storage = createMMKV({
 
 export const setItem = (key: string, value: any): boolean => {
   try {
-    storage.set(key, typeof value === 'string' ? value : JSON.stringify(value));
+    storage.set(key, JSON.stringify(value));
     return true;
   } catch (error) {
     console.error('MMKV setItem error:', error);
@@ -17,7 +17,15 @@ export const setItem = (key: string, value: any): boolean => {
 export const getItem = <T = any>(key: string): T | null => {
   try {
     const value = storage.getString(key);
-    return value ? JSON.parse(value) : null;
+    if (!value) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value as T;
+    }
   } catch (error) {
     console.error('MMKV getItem error:', error);
     return null;
