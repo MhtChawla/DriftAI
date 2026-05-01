@@ -7,6 +7,7 @@ import {
   type BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { Mic, Command, Settings } from 'lucide-react-native';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -46,12 +47,17 @@ const TAB_ITEMS: {
 
 const TabBar = React.memo(function TabBar({ state, navigation }: BottomTabBarProps) {
   const t = useThemeTokens();
+  const insets = useSafeAreaInsets();
 
   return (
     <View
       style={[
         styles.tabBar,
-        { backgroundColor: t.surface, borderColor: t.border },
+        {
+          backgroundColor: t.surface,
+          borderColor: t.border,
+          bottom: Math.max(22, insets.bottom + 12),
+        },
       ]}
     >
       {TAB_ITEMS.map((item, idx) => {

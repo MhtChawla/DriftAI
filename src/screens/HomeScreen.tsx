@@ -9,6 +9,7 @@ import {
   Pressable,
 } from 'react-native';
 import { MessageCircle } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeTokens } from '../hooks/useThemeTokens';
 import { useAppStore } from '../store/useAppStore';
 import { useVoice } from '../hooks/useVoice';
@@ -40,13 +41,14 @@ type Props = CompositeScreenProps<
 
 export function HomeScreen({ navigation }: Props) {
   const t = useThemeTokens();
+  const insets = useSafeAreaInsets();
   const name = useAppStore(s => s.user.name);
   const vizStyle = useAppStore(s => s.vizStyle);
   const { isListening, transcript, startListening, stopListening } = useVoice();
   const [intentResult, setIntentResult] = useState<IntentParseResult | null>(
     null,
   );
-  const [intentError, setIntentError] = useState<string | null>(null);
+  const [_intentError, setIntentError] = useState<string | null>(null);
   const [isParsingIntent, setIsParsingIntent] = useState(false);
   const [actionResults, setActionResults] = useState<
     ActionExecutionResult[] | null
@@ -172,7 +174,7 @@ export function HomeScreen({ navigation }: Props) {
     return () => {
       didCancel = true;
     };
-  }, [isListening, navigation, trimmedTranscript]);
+  }, [addMessage, isListening, navigation, trimmedTranscript]);
 
   const greeting = useMemo(() => {
     const h = new Date().getHours();
@@ -269,12 +271,13 @@ export function HomeScreen({ navigation }: Props) {
               <MonoLabel style={{ fontSize: 9.5 }}>
                 {isListening ? 'YOU · TRANSCRIBING' : 'YOU · TRANSCRIPT'}
               </MonoLabel>
-              <Text style={[styles.cardText, { color: t.text }]}>
+              <Text style={[styles.cardText, styles.transcriptText, { color: t.text }]}>
                 {transcript}
               </Text>
             </View>
           )}
-          {(isParsingIntent || intentResult || intentError) && (
+          {/*
+          {(isParsingIntent || intentResult || _intentError) && (
             <View
               style={[
                 styles.card,
@@ -289,9 +292,9 @@ export function HomeScreen({ navigation }: Props) {
                   <ActivityIndicator size="small" color={tokens.accent1} />
                 )}
               </View>
-              {intentError ? (
+              {_intentError ? (
                 <Text style={[styles.cardText, { color: tokens.danger }]}>
-                  {intentError}
+                  {_intentError}
                 </Text>
               ) : (
                 <Text style={[styles.jsonText, { color: t.text }]}>
@@ -302,6 +305,7 @@ export function HomeScreen({ navigation }: Props) {
               )}
             </View>
           )}
+          */}
           {(isExecutingActions || actionResults || actionError) && (() => {
             const chatResult = actionResults?.find(r => r.type === 'chat');
             const nonChatResults = actionResults?.filter(r => r.type !== 'chat') ?? [];
@@ -380,7 +384,11 @@ export function HomeScreen({ navigation }: Props) {
         onPress={() => navigation.navigate('Chat')}
         style={[
           styles.fab,
-          { backgroundColor: t.surface2, borderColor: t.borderStrong },
+          {
+            backgroundColor: t.surface2,
+            borderColor: t.borderStrong,
+            bottom: Math.max(22, insets.bottom + 12) + 78,
+          },
         ]}
       >
         <MessageCircle size={22} color={t.text} />
@@ -435,6 +443,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     lineHeight: 21,
   },
+  transcriptText: {
+    textTransform: 'capitalize',
+  },
   jsonText: {
     fontFamily: fonts.mono,
     fontSize: 12,
@@ -442,7 +453,6 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 100,
     right: 20,
     width: 52,
     height: 52,
