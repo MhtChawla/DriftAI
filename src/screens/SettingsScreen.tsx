@@ -3,36 +3,40 @@ import React from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { ChevronRight } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useThemeTokens } from '../hooks/useThemeTokens';
 import { usePermissions } from '../hooks/usePermissions';
-import { useAppStore, type ResponseStyle } from '../store/useAppStore';
+import { useAppStore } from '../store/useAppStore';
 import { fonts, tokens } from '../theme/tokens';
 import { MonoLabel } from '../components/MonoLabel';
 import { Toggle } from '../components/Toggle';
+import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import type { TabsParamList } from '../navigation/RootNavigator';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList, TabsParamList } from '../navigation/RootNavigator';
 
-type Props = BottomTabScreenProps<TabsParamList, 'Settings'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<TabsParamList, 'Settings'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
-export function SettingsScreen(_: Props) {
+export function SettingsScreen({ navigation }: Props) {
   const t = useThemeTokens();
   const name = useAppStore((s) => s.user.name);
+  const commandCount = useAppStore((s) => s.commandCount);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const perms = useAppStore((s) => s.permissions);
-  const { requestMic, requestContacts, requestNotifications, requestMedia } = usePermissions();
-  const responseStyle = useAppStore((s) => s.responseStyle);
-  const setResponseStyle = useAppStore((s) => s.setResponseStyle);
-  const language = useAppStore((s) => s.language);
+  const { requestMic, requestContacts, requestNotifications, requestMedia, syncPermissions } = usePermissions();
   const ttsEnabled = useAppStore((s) => s.ttsEnabled);
   const setTtsEnabled = useAppStore((s) => s.setTtsEnabled);
   const clearMessages = useAppStore((s) => s.clearMessages);
 
-  const respOptions: { v: ResponseStyle; l: string }[] = [
-    { v: 'short', l: 'Short' },
-    { v: 'balanced', l: 'Balanced' },
-    { v: 'detailed', l: 'Detailed' },
-  ];
+  useFocusEffect(
+    React.useCallback(() => {
+      syncPermissions();
+    }, [syncPermissions])
+  );
 
   return (
     <View style={[styles.root, { backgroundColor: t.bg }]}>
@@ -62,7 +66,9 @@ export function SettingsScreen(_: Props) {
             <Text style={[styles.profileName, { color: t.text, fontFamily: fonts.sans }]}>
               {name}
             </Text>
-            <Text style={{ color: t.textDim, fontSize: 13 }}>Drift Pro · 12 commands</Text>
+            <Text style={{ color: t.textDim, fontSize: 13 }}>
+              Drift AI · {commandCount} {commandCount === 1 ? 'command' : 'commands'}
+            </Text>
           </View>
           <View style={styles.proBadge}>
             <Text style={styles.proBadgeText}>PRO</Text>
@@ -70,56 +76,21 @@ export function SettingsScreen(_: Props) {
         </LinearGradient>
 
         <Section label="PERMISSIONS">
-          <ToggleRow label="Microphone" sub="Required for voice input" value={perms.mic} onChange={requestMic} />
-          <ToggleRow label="Contacts" sub="To send messages and place calls" value={perms.contacts} onChange={requestContacts} />
-          <ToggleRow label="Notifications" sub="Reminders and reply suggestions" value={perms.notifications} onChange={requestNotifications} />
-          <ToggleRow label="Media & Storage" sub="Access photos and files" value={perms.media} onChange={requestMedia} isLast />
+          <ToggleRow label="Microphone" sub="Required for voice input" value={perms.mic} onChange={requestMic} disabled={perms.mic} />
+          <ToggleRow label="Contacts" sub="To send messages and place calls" value={perms.contacts} onChange={requestContacts} disabled={perms.contacts} />
+          <ToggleRow label="Notifications" sub="Reminders and reply suggestions" value={perms.notifications} onChange={requestNotifications} disabled={perms.notifications} />
+          <ToggleRow label="Media & Storage" sub="Access photos and files" value={perms.media} onChange={requestMedia} disabled={perms.media} isLast />
         </Section>
 
         <Section label="AI">
-          <View style={[styles.segWrap, { borderBottomColor: t.border, borderBottomWidth: 1 }]}>
-            <Text style={[styles.rowLabel, { color: t.text, fontFamily: fonts.sans, marginBottom: 10 }]}>
-              Response style
-            </Text>
-            <View style={[styles.segContainer, { backgroundColor: t.surface2 }]}>
-              {respOptions.map((o) => {
-                const active = responseStyle === o.v;
-                return (
-                  <Pressable
-                    key={o.v}
-                    onPress={() => setResponseStyle(o.v)}
-                    style={styles.segBtn}
-                  >
-                    {active && (
-                      <LinearGradient
-                        colors={[tokens.accent1, tokens.accent2]}
-                        style={[StyleSheet.absoluteFill, { borderRadius: 9 }]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                      />
-                    )}
-                    <Text
-                      style={{
-                        color: active ? '#fff' : t.textDim,
-                        fontFamily: fonts.sans,
-                        fontSize: 13,
-                        fontWeight: '500',
-                      }}
-                    >
-                      {o.l}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+          <DetailRow label="API Key" detail="243248***3984239" />
           <ToggleRow
             label="Voice responses (TTS)"
             sub="Drif speaks AI answers aloud"
             value={ttsEnabled}
             onChange={setTtsEnabled}
+            isLast
           />
-          <NavRow label="Language" detail={language} isLast />
         </Section>
 
         <Section label="APP">
@@ -145,9 +116,9 @@ export function SettingsScreen(_: Props) {
         </Section>
 
         <Section label="ABOUT">
-          <DetailRow label="Version" detail="2.4.1 (build 482)" />
-          <DetailRow label="Developer" detail="Drift Labs" />
-          <NavRow label="Privacy policy" isLast />
+          <DetailRow label="Version" detail="1.0.0" />
+          <DetailRow label="Developer" detail="Mohit Chawla" />
+          <NavRow label="Privacy policy" onPress={() => navigation.navigate('PrivacyPolicy')} isLast />
         </Section>
 
         <Text
@@ -160,7 +131,7 @@ export function SettingsScreen(_: Props) {
             letterSpacing: 1,
           }}
         >
-          DRIFTAI · 0xDRIFT · MADE FOR VOICE
+          DRIFTAI · MADE FOR VOICE
         </Text>
       </ScrollView>
     </View>
@@ -192,12 +163,14 @@ function ToggleRow({
   sub,
   value,
   onChange,
+  disabled,
   isLast,
 }: {
   label: string;
   sub?: string;
   value: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
   isLast?: boolean;
 }) {
   const t = useThemeTokens();
@@ -214,15 +187,26 @@ function ToggleRow({
           <Text style={{ fontSize: 12, color: t.textDim, marginTop: 2 }}>{sub}</Text>
         )}
       </View>
-      <Toggle value={value} onChange={onChange} />
+      <Toggle value={value} onChange={onChange} disabled={disabled} />
     </View>
   );
 }
 
-function NavRow({ label, detail, isLast }: { label: string; detail?: string; isLast?: boolean }) {
+function NavRow({
+  label,
+  detail,
+  onPress,
+  isLast,
+}: {
+  label: string;
+  detail?: string;
+  onPress?: () => void;
+  isLast?: boolean;
+}) {
   const t = useThemeTokens();
   return (
     <Pressable
+      onPress={onPress}
       style={[
         styles.row,
         !isLast && { borderBottomWidth: 1, borderBottomColor: t.border },
@@ -305,19 +289,4 @@ const styles = StyleSheet.create({
   },
   rowLabel: { fontSize: 15, letterSpacing: -0.2 },
   btnRow: { paddingVertical: 14, paddingHorizontal: 14 },
-  segWrap: { paddingVertical: 12, paddingHorizontal: 14 },
-  segContainer: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    padding: 3,
-    gap: 2,
-  },
-  segBtn: {
-    flex: 1,
-    height: 32,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
 });

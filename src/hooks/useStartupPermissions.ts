@@ -11,9 +11,6 @@ export function useStartupPermissions() {
     const request = async () => {
       await PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.CALL_PHONE,
-        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-        PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
-        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
       ]);
     };
     request();

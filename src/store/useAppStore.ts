@@ -58,6 +58,7 @@ export type AppState = {
   // Chat & commands
   messages: ChatMessage[];
   commands: Command[];
+  commandCount: number;
 
   // Actions
   setName: (name: string) => void;
@@ -98,9 +99,21 @@ const seedMessages: ChatMessage[] = [
 
 const COMMANDS_STORAGE_KEY = 'commands';
 const MESSAGES_STORAGE_KEY = 'messages';
+const PERMISSIONS_STORAGE_KEY = 'permissions';
+const COMMAND_COUNT_STORAGE_KEY = 'command_count';
 
 const getInitialCommands = () => getItem<Command[]>(COMMANDS_STORAGE_KEY) ?? seedCommands;
 const getInitialMessages = () => getItem<ChatMessage[]>(MESSAGES_STORAGE_KEY) ?? seedMessages;
+const getInitialCommandCount = () =>
+  getItem<number>(COMMAND_COUNT_STORAGE_KEY) ??
+  getInitialMessages().filter((message) => message.role === 'user').length;
+const getInitialPermissions = () =>
+  getItem<Permissions>(PERMISSIONS_STORAGE_KEY) ?? {
+    mic: false,
+    contacts: false,
+    notifications: false,
+    media: false,
+  };
 
 const persistCommands = (commands: Command[]) => {
   setItem(COMMANDS_STORAGE_KEY, commands);
@@ -108,6 +121,14 @@ const persistCommands = (commands: Command[]) => {
 
 const persistMessages = (messages: ChatMessage[]) => {
   setItem(MESSAGES_STORAGE_KEY, messages);
+};
+
+const persistPermissions = (permissions: Permissions) => {
+  setItem(PERMISSIONS_STORAGE_KEY, permissions);
+};
+
+const persistCommandCount = (count: number) => {
+  setItem(COMMAND_COUNT_STORAGE_KEY, count);
 };
 
 export const useAppStore = create<AppState>((set) => ({
@@ -124,19 +145,25 @@ export const useAppStore = create<AppState>((set) => ({
   vizStyle: 'rings',
   accentHue: 255,
 
-  permissions: { mic: true, contacts: true, notifications: false, media: false },
+  permissions: getInitialPermissions(),
   responseStyle: 'balanced',
   language: 'English (US)',
   ttsEnabled: true,
 
   messages: getInitialMessages(),
   commands: getInitialCommands(),
+  commandCount: getInitialCommandCount(),
 
   setName: (name) => set((s) => ({ user: { ...s.user, name } })),
   setTheme: (theme) => set({ theme }),
   setVizStyle: (vizStyle) => set({ vizStyle }),
   setAccentHue: (accentHue) => set({ accentHue }),
-  setPermission: (k, v) => set((s) => ({ permissions: { ...s.permissions, [k]: v } })),
+  setPermission: (k, v) =>
+    set((s) => {
+      const permissions = { ...s.permissions, [k]: v };
+      persistPermissions(permissions);
+      return { permissions };
+    }),
   setResponseStyle: (responseStyle) => set({ responseStyle }),
   setLanguage: (language) => set({ language }),
   setTtsEnabled: (ttsEnabled) => set({ ttsEnabled }),
@@ -147,8 +174,10 @@ export const useAppStore = create<AppState>((set) => ({
         ...s.messages,
         { ...m, id: Math.random().toString(36).slice(2), ts: Date.now() },
       ];
+      const commandCount = m.role === 'user' ? s.commandCount + 1 : s.commandCount;
       persistMessages(messages);
-      return { messages };
+      persistCommandCount(commandCount);
+      return { messages, commandCount };
     }),
   clearMessages: () => {
     persistMessages([]);

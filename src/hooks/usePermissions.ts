@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
 import { PermissionsAndroid, Platform, Alert, Linking } from 'react-native';
 import { useAppStore } from '../store/useAppStore';
+import type { Permissions } from '../store/useAppStore';
+
+const isAndroid13Plus = () => Number(Platform.Version) >= 33;
 
 function showSettingsAlert(permissionName: string, usage: string) {
   Alert.alert(
@@ -15,6 +18,29 @@ function showSettingsAlert(permissionName: string, usage: string) {
 
 export function usePermissions() {
   const setPermission = useAppStore((s) => s.setPermission);
+
+  const syncPermissions = useCallback(async () => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    const next: Permissions = {
+      mic: await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO),
+      contacts: await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_CONTACTS),
+      notifications: isAndroid13Plus()
+        ? await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS)
+        : true,
+      media: await PermissionsAndroid.check(
+        isAndroid13Plus()
+          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
+          : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE
+      ),
+    };
+
+    (Object.keys(next) as (keyof Permissions)[]).forEach((key) => {
+      setPermission(key, next[key]);
+    });
+  }, [setPermission]);
 
   const requestMic = useCallback(
     async (enable: boolean) => {
@@ -89,10 +115,30 @@ export function usePermissions() {
   );
 
   const requestNotifications = useCallback(
-    (enable: boolean) => {
-      // System permission is requested at startup (useStartupPermissions).
-      // This toggle just controls whether the app sends notifications.
-      setPermission('notifications', enable);
+    async (enable: boolean) => {
+      if (!enable) {
+        setPermission('notifications', false);
+        return;
+      }
+      if (Platform.OS === 'android' && isAndroid13Plus()) {
+        const result = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+          {
+            title: 'Notifications Permission',
+            message: 'Drift needs notification access for reminders and reply suggestions.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'Allow',
+          }
+        );
+        const granted = result === PermissionsAndroid.RESULTS.GRANTED;
+        setPermission('notifications', granted);
+        if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+          showSettingsAlert('Notifications', 'reminders and reply suggestions');
+        }
+      } else {
+        setPermission('notifications', true);
+      }
     },
     [setPermission]
   );
@@ -104,21 +150,19 @@ export function usePermissions() {
         return;
       }
       if (Platform.OS === 'android') {
-        // Android 13+ uses READ_MEDIA_IMAGES; older versions use READ_EXTERNAL_STORAGE
-        const permsToRequest = [
-          PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
-          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-        ];
-
-        const results = await PermissionsAndroid.requestMultiple(permsToRequest);
-        const granted =
-          results[PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES] === PermissionsAndroid.RESULTS.GRANTED ||
-          results[PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE] === PermissionsAndroid.RESULTS.GRANTED;
+        const permission = isAndroid13Plus()
+          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
+          : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+        const result = await PermissionsAndroid.request(permission, {
+          title: 'Media & Storage Permission',
+          message: 'Drift needs media access to work with photos and files.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'Allow',
+        });
+        const granted = result === PermissionsAndroid.RESULTS.GRANTED;
         setPermission('media', granted);
-        const blockedAny = Object.values(results).some(
-          (r) => r === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN
-        );
-        if (blockedAny && !granted) {
+        if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
           showSettingsAlert('Media & Storage', 'accessing photos and files');
         }
       } else {
@@ -135,5 +179,5 @@ export function usePermissions() {
     [setPermission]
   );
 
-  return { requestMic, requestContacts, requestNotifications, requestMedia };
+  return { requestMic, requestContacts, requestNotifications, requestMedia, syncPermissions };
 }

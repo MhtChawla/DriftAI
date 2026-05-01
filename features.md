@@ -37,10 +37,12 @@
   E.g.
   Call Ram -> Fetches contact & ringing Ram
 
-## 6. Multi-step Execution ✅
+## 6. Custom Commands ✅
 
-- Parse compound commands
-- Execute sequential actions with state
+- User-defined command → mapped to action chain
+- Stored locally
+  E.g.
+  On Commands screen - you can develop your own set of actions you need Drift to perform for you.
 
 ## 7. Events / Reminders ✅
 
@@ -54,15 +56,17 @@
 
 - Ask questions → get AI response
 - Optional TTS playback
+  E.g.
+  Ask question, it's speaks & gives answers
 
 ## 9. Smart Gallery Search ✅
 
-- Fetch images
-- Filter via tags/keywords
+- Fetch images / on basis of dates
   E.g.
   Show me photos from 24th of feb -> it opens gallery & redirect to 24th feb pictures
 
-## 10. Custom Commands ✅
+## 10. Multi-step Execution ✅
 
-- User-defined command → mapped to action chain
-- Stored locally
+- Parse compound commands
+- Execute sequential actions with state
+  Custom Commands page - you can set multiple automations at once

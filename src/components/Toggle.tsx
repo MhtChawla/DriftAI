@@ -4,11 +4,16 @@ import { Pressable, View, StyleSheet } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { tokens } from '../theme/tokens';
 
-type Props = { value: boolean; onChange: (v: boolean) => void };
+type Props = { value: boolean; onChange: (v: boolean) => void; disabled?: boolean };
 
-export const Toggle = React.memo(function Toggle({ value, onChange }: Props) {
+export const Toggle = React.memo(function Toggle({ value, onChange, disabled = false }: Props) {
   return (
-    <Pressable onPress={() => onChange(!value)} hitSlop={8} style={styles.wrap}>
+    <Pressable
+      onPress={() => onChange(!value)}
+      disabled={disabled}
+      hitSlop={8}
+      style={[styles.wrap, disabled && styles.disabled]}
+    >
       {value ? (
         <LinearGradient
           colors={[tokens.accent1, tokens.accent2]}
@@ -34,6 +39,9 @@ const styles = StyleSheet.create({
   },
   track: {
     backgroundColor: 'rgba(120,120,128,0.32)',
+  },
+  disabled: {
+    opacity: 0.78,
   },
   knob: {
     position: 'absolute',
