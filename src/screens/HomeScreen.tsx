@@ -14,6 +14,7 @@ import { useThemeTokens } from '../hooks/useThemeTokens';
 import { useAppStore } from '../store/useAppStore';
 import { useVoice } from '../hooks/useVoice';
 import { fonts, tokens } from '../theme/tokens';
+import { getItem, setItem } from '../utils/storage/mmkvStorage';
 import { MonoLabel } from '../components/MonoLabel';
 import { GradientText } from '../components/GradientText';
 import { MicButton } from '../components/MicButton';
@@ -39,12 +40,57 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
+type QuickstartPick = {
+  label: string;
+  spokenText: string;
+  actionType: IntentParseResult['actions'][number]['type'];
+  reply: string;
+  replyKind: 'chat' | 'status';
+};
+
+const QUICKSTART_SEEN_KEY = 'home_quickstart_seen';
+
+const QUICKSTART_PICKS: QuickstartPick[] = [
+  {
+    label: 'Ask Drif',
+    spokenText: 'What can you help me with?',
+    actionType: 'chat',
+    reply: 'I can answer questions, translate text, draft messages, set reminders, open apps, and run your saved command routines.',
+    replyKind: 'chat',
+  },
+  {
+    label: 'Translate',
+    spokenText: 'Translate good morning to Hindi',
+    actionType: 'translate',
+    reply: 'In Hindi: Good morning becomes "Suprabhat".',
+    replyKind: 'status',
+  },
+  {
+    label: 'Reminder',
+    spokenText: 'Remind me to drink water in 20 minutes',
+    actionType: 'create_reminder',
+    reply: 'Demo: Drif would create a reminder for "drink water" in 20 minutes.',
+    replyKind: 'status',
+  },
+  {
+    label: 'WhatsApp',
+    spokenText: 'Send Rahul a WhatsApp saying I am running late',
+    actionType: 'send_whatsapp',
+    reply: 'Demo: Drif would open WhatsApp with the message ready for Rahul.',
+    replyKind: 'status',
+  },
+];
+
 export function HomeScreen({ navigation }: Props) {
   const t = useThemeTokens();
   const insets = useSafeAreaInsets();
   const name = useAppStore(s => s.user.name);
   const vizStyle = useAppStore(s => s.vizStyle);
   const { isListening, transcript, startListening, stopListening } = useVoice();
+  const [showQuickstart, setShowQuickstart] = useState(
+    () => !getItem<boolean>(QUICKSTART_SEEN_KEY),
+  );
+  const [demoTranscript, setDemoTranscript] = useState('');
   const [intentResult, setIntentResult] = useState<IntentParseResult | null>(
     null,
   );
@@ -59,6 +105,7 @@ export function HomeScreen({ navigation }: Props) {
   const requestIdRef = useRef(0);
 
   const addMessage = useAppStore(s => s.addMessage);
+  const displayedTranscript = demoTranscript || transcript;
   const trimmedTranscript = transcript.trim();
   const state: MicState =
     isParsingIntent || isExecutingActions
@@ -71,6 +118,7 @@ export function HomeScreen({ navigation }: Props) {
     if (isListening) {
       requestIdRef.current += 1;
       parsedTranscriptRef.current = '';
+      setDemoTranscript('');
       setIntentResult(null);
       setIntentError(null);
       setIsParsingIntent(false);
@@ -176,6 +224,35 @@ export function HomeScreen({ navigation }: Props) {
     };
   }, [addMessage, isListening, navigation, trimmedTranscript]);
 
+  const hideQuickstart = () => {
+    setItem(QUICKSTART_SEEN_KEY, true);
+    setShowQuickstart(false);
+  };
+
+  const playQuickstartDemo = (pick: QuickstartPick) => {
+    if (isListening || isParsingIntent || isExecutingActions) {
+      return;
+    }
+
+    requestIdRef.current += 1;
+    parsedTranscriptRef.current = '';
+    hideQuickstart();
+    setDemoTranscript(pick.spokenText);
+    setIntentError(null);
+    setActionError(null);
+    setIsParsingIntent(false);
+    setIsExecutingActions(false);
+    setIntentResult({
+      actions: [{ type: pick.actionType, text: pick.spokenText }],
+    });
+    setActionResults([
+      {
+        type: pick.replyKind === 'chat' ? 'chat' : pick.actionType,
+        message: pick.reply,
+      },
+    ]);
+  };
+
   const greeting = useMemo(() => {
     const h = new Date().getHours();
     if (h < 5) return 'Still up';
@@ -259,9 +336,56 @@ export function HomeScreen({ navigation }: Props) {
           />
         </View>
 
+        {showQuickstart && state === 'idle' && !displayedTranscript && !actionResults && (
+          <View
+            style={[
+              styles.quickstart,
+              { backgroundColor: t.surface, borderColor: t.border },
+            ]}
+          >
+            <View style={styles.quickstartHeader}>
+              <View>
+                <MonoLabel style={{ fontSize: 9.5, color: tokens.accent1 }}>
+                  QUICKSTART
+                </MonoLabel>
+                <Text style={[styles.quickstartTitle, { color: t.text }]}>
+                  Tap a demo command
+                </Text>
+              </View>
+              <Pressable onPress={hideQuickstart} hitSlop={12}>
+                <Text style={[styles.quickstartSkip, { color: t.textDim }]}>
+                  Hide
+                </Text>
+              </Pressable>
+            </View>
+            <View style={styles.quickstartPicks}>
+              {QUICKSTART_PICKS.map(pick => (
+                <Pressable
+                  key={pick.label}
+                  onPress={() => playQuickstartDemo(pick)}
+                  style={[
+                    styles.quickstartPick,
+                    { backgroundColor: t.surface2, borderColor: t.borderStrong },
+                  ]}
+                >
+                  <Text style={[styles.quickstartPickLabel, { color: t.text }]}>
+                    {pick.label}
+                  </Text>
+                  <Text
+                    numberOfLines={2}
+                    style={[styles.quickstartPickText, { color: t.textDim }]}
+                  >
+                    "{pick.spokenText}"
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* transcript */}
         <View style={styles.tBlock}>
-          {!!transcript && (
+          {!!displayedTranscript && (
             <View
               style={[
                 styles.card,
@@ -269,10 +393,10 @@ export function HomeScreen({ navigation }: Props) {
               ]}
             >
               <MonoLabel style={{ fontSize: 9.5 }}>
-                {isListening ? 'YOU · TRANSCRIBING' : 'YOU · TRANSCRIPT'}
+                {isListening ? 'YOU · TRANSCRIBING' : demoTranscript ? 'DEMO · SPOKEN TEXT' : 'YOU · TRANSCRIPT'}
               </MonoLabel>
               <Text style={[styles.cardText, styles.transcriptText, { color: t.text }]}>
-                {transcript}
+                {displayedTranscript}
               </Text>
             </View>
           )}
@@ -369,7 +493,7 @@ export function HomeScreen({ navigation }: Props) {
               </>
             );
           })()}
-          {!transcript && state === 'idle' && (
+          {!displayedTranscript && state === 'idle' && !showQuickstart && (
             <View style={{ alignItems: 'center', opacity: 0.5 }}>
               <MonoLabel style={{ fontSize: 10 }}>
                 TAP TO START LISTENING
@@ -422,9 +546,59 @@ const styles = StyleSheet.create({
   },
   micWrap: {
     flex: 1,
-    minHeight: 240,
+    minHeight: 210,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quickstart: {
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 14,
+    marginBottom: 16,
+    padding: 14,
+  },
+  quickstartHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  quickstartTitle: {
+    fontFamily: fonts.sans,
+    fontSize: 18,
+    fontWeight: '700',
+    lineHeight: 24,
+    marginTop: 4,
+  },
+  quickstartSkip: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  quickstartPicks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  quickstartPick: {
+    borderRadius: 14,
+    borderWidth: 1,
+    minHeight: 74,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    width: '48%',
+  },
+  quickstartPickLabel: {
+    fontFamily: fonts.sans,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  quickstartPickText: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 16,
   },
   tBlock: { minHeight: 92, marginBottom: 16, gap: 10 },
   card: {
