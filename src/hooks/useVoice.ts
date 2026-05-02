@@ -43,19 +43,23 @@ export const useVoice = (): UseVoiceReturn => {
 
     const subscriptions = [
       eventEmitter.addListener('onSpeechStart', () => {
+        console.log('[useVoice] onSpeechStart');
         setIsListening(true);
         setError(null);
       }),
       eventEmitter.addListener('onSpeechRecognized', (event: any) => {
+        console.log('[useVoice] onSpeechRecognized transcript=', JSON.stringify(event.transcript));
         setTranscript(event.transcript || '');
       }),
       eventEmitter.addListener('onSpeechError', (event: any) => {
         const errorMsg = event.error || 'Speech recognition error';
+        console.log('[useVoice] onSpeechError', errorMsg);
         setError(errorMsg);
         setAppError(errorMsg);
         setIsListening(false);
       }),
       eventEmitter.addListener('onSpeechEnd', () => {
+        console.log('[useVoice] onSpeechEnd');
         setIsListening(false);
       }),
     ];

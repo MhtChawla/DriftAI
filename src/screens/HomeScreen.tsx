@@ -52,7 +52,7 @@ const QUICKSTART_SEEN_KEY = 'home_quickstart_seen';
 
 const QUICKSTART_PICKS: QuickstartPick[] = [
   {
-    label: 'Ask Drif',
+    label: 'Ask Drift',
     spokenText: 'What can you help me with?',
     actionType: 'chat',
     reply: 'I can answer questions, translate text, draft messages, set reminders, open apps, and run your saved command routines.',
@@ -114,10 +114,18 @@ export function HomeScreen({ navigation }: Props) {
         ? 'listening'
         : 'idle';
 
+  // Track whether we were previously listening so we can detect
+  // the transition from listening→stopped even if transcript arrives late.
+  const wasListeningRef = useRef(false);
+  const pendingTranscriptRef = useRef('');
+
   useEffect(() => {
+    console.log('[HomeScreen effect] isListening=', isListening, 'trimmedTranscript=', JSON.stringify(trimmedTranscript), 'wasListening=', wasListeningRef.current, 'pending=', JSON.stringify(pendingTranscriptRef.current));
     if (isListening) {
+      wasListeningRef.current = true;
       requestIdRef.current += 1;
       parsedTranscriptRef.current = '';
+      pendingTranscriptRef.current = '';
       setDemoTranscript('');
       setIntentResult(null);
       setIntentError(null);
@@ -128,16 +136,27 @@ export function HomeScreen({ navigation }: Props) {
       return;
     }
 
+    // Android fires onSpeechEnd before onResults, so transcript may arrive
+    // after isListening flips to false. Store it and wait.
+    if (trimmedTranscript && wasListeningRef.current) {
+      pendingTranscriptRef.current = trimmedTranscript;
+    }
+
+    const effectiveTranscript = pendingTranscriptRef.current || trimmedTranscript;
+    console.log('[HomeScreen effect] effectiveTranscript=', JSON.stringify(effectiveTranscript), 'parsedRef=', JSON.stringify(parsedTranscriptRef.current));
+
     if (
-      !trimmedTranscript ||
-      parsedTranscriptRef.current === trimmedTranscript
+      !effectiveTranscript ||
+      parsedTranscriptRef.current === effectiveTranscript
     ) {
+      console.log('[HomeScreen effect] bailing early — no transcript or already parsed');
       return;
     }
 
+    wasListeningRef.current = false;
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-    parsedTranscriptRef.current = trimmedTranscript;
+    parsedTranscriptRef.current = effectiveTranscript;
 
     setIsParsingIntent(true);
     setIntentResult(null);
@@ -152,7 +171,7 @@ export function HomeScreen({ navigation }: Props) {
       let phase: 'parse' | 'execute' = 'parse';
 
       try {
-        const result = await parseVoiceIntent(trimmedTranscript);
+        const result = await parseVoiceIntent(effectiveTranscript);
 
         if (didCancel || requestIdRef.current !== requestId) {
           return;
@@ -163,8 +182,7 @@ export function HomeScreen({ navigation }: Props) {
 
         if (!result.actions.length) {
           setActionResults([]);
-          // save transcript + fallback AI message to chat
-          addMessage({ role: 'user', text: trimmedTranscript });
+          addMessage({ role: 'user', text: effectiveTranscript });
           addMessage({ role: 'ai', text: "I heard you, but couldn't find an action for that." });
           return;
         }
@@ -184,11 +202,9 @@ export function HomeScreen({ navigation }: Props) {
 
         setActionResults(executionResults);
 
-        // handleChat in actionEngine already saves user+ai messages for chat actions.
-        // For non-chat actions, save transcript + status as messages here.
         const hasChat = result.actions.some(a => a.type === 'chat');
         if (!hasChat) {
-          addMessage({ role: 'user', text: trimmedTranscript });
+          addMessage({ role: 'user', text: effectiveTranscript });
           const statusText = executionResults.map(r => r.message).filter(Boolean).join('\n');
           if (statusText) {
             addMessage({ role: 'ai', text: statusText });
@@ -201,7 +217,7 @@ export function HomeScreen({ navigation }: Props) {
 
         if (phase === 'parse') {
           setIntentError(error?.message || 'Failed to parse intent');
-          addMessage({ role: 'user', text: trimmedTranscript });
+          addMessage({ role: 'user', text: effectiveTranscript });
           addMessage({ role: 'ai', text: `Error: ${error?.message || 'Failed to parse intent'}` });
         } else {
           const detail = error?.message || String(error) || 'Failed to execute action';
@@ -396,7 +412,7 @@ export function HomeScreen({ navigation }: Props) {
                 {isListening ? 'YOU · TRANSCRIBING' : demoTranscript ? 'DEMO · SPOKEN TEXT' : 'YOU · TRANSCRIPT'}
               </MonoLabel>
               <Text style={[styles.cardText, styles.transcriptText, { color: t.text }]}>
-                {displayedTranscript}
+                {displayedTranscript.charAt(0).toUpperCase() + displayedTranscript.slice(1)}
               </Text>
             </View>
           )}
@@ -447,7 +463,7 @@ export function HomeScreen({ navigation }: Props) {
                   >
                     <View style={styles.cardHeader}>
                       <MonoLabel style={{ fontSize: 9.5, color: tokens.accent1 }}>
-                        DRIF · RESPONSE
+                        DRIFT · RESPONSE
                       </MonoLabel>
                       {isExecutingActions && isChatOnly && (
                         <ActivityIndicator size="small" color={tokens.accent1} />
@@ -618,7 +634,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   transcriptText: {
-    textTransform: 'capitalize',
+    textTransform: 'none',
   },
   jsonText: {
     fontFamily: fonts.mono,

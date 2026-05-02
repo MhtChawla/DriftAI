@@ -88,7 +88,7 @@ export function SettingsScreen({ navigation }: Props) {
           <DetailRow label="API Key" detail={maskedApiKey} />
           <ToggleRow
             label="Voice responses (TTS)"
-            sub="Drif speaks AI answers aloud"
+            sub="Drift speaks AI answers aloud"
             value={ttsEnabled}
             onChange={setTtsEnabled}
             isLast

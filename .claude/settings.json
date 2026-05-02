@@ -10,7 +10,8 @@
       "Bash(python3 -c \"from PIL import Image; print\\('PIL OK'\\)\")",
       "Bash(python3 -c \"import cairosvg; print\\('cairosvg OK'\\)\")",
       "Bash(pip3 install *)",
-      "Bash(python3)"
+      "Bash(python3)",
+      "Bash(adb logcat *)"
     ]
   }
 }
