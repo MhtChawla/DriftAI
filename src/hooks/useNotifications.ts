@@ -30,7 +30,8 @@ export const useNotifications = (): UseNotificationsReturn => {
         await notifee.createChannel({
           id: 'default',
           name: 'Default Channel',
-          importance: AndroidImportance.DEFAULT,
+          importance: AndroidImportance.HIGH,
+          sound: 'none',
         });
 
         // Listen to foreground events

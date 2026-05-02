@@ -9,7 +9,7 @@ type Props = {
   style?: StyleProp<TextStyle>;
 };
 
-export function MonoLabel({ children, style }: Props) {
+export const MonoLabel = React.memo(function MonoLabel({ children, style }: Props) {
   const t = useThemeTokens();
   return (
     <Text
@@ -27,4 +27,4 @@ export function MonoLabel({ children, style }: Props) {
       {children}
     </Text>
   );
-}
+});

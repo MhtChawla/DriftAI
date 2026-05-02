@@ -1,68 +1,85 @@
-![DriftAI Screenshots](screenshots.png)
-
 # Drift AI
 
 **Voice-first AI assistant for iOS & Android.**
 Speak naturally — Drif resolves your intent into real actions. Powered by OpenAI.
 
----
+![DriftAI Screenshots](screenshots.png)
 
 ## Tech Stack
 
-| | |
-|---|---|
-| React Native | 0.85.2 (New Architecture) |
-| React | 19.2.3 |
-| TypeScript | 5.8.3 |
-| State | Zustand |
-| Storage | react-native-mmkv + Keychain (API key) |
-| Navigation | React Navigation v7 (stack + custom tab bar) |
-| AI | OpenAI gpt-3.5-turbo via Axios |
-| Native STT | Android SpeechRecognizer (Kotlin bridge) |
-| Notifications | Notifee |
+|               |                                              |
+| ------------- | -------------------------------------------- |
+| React Native  | 0.85.2 (New Architecture)                    |
+| React         | 19.2.3                                       |
+| TypeScript    | 5.8.3                                        |
+| State         | Zustand                                      |
+| Storage       | react-native-mmkv + Keychain (API key)       |
+| Navigation    | React Navigation v7 (stack + custom tab bar) |
+| AI            | OpenAI gpt-3.5-turbo via Axios               |
+| Native STT    | Android SpeechRecognizer (Kotlin bridge)     |
+| Notifications | Notifee                                      |
 
 ---
 
 ## Features
 
 ### 1. WhatsApp Messaging
+
 Voice → intent → contact resolution → prefilled WhatsApp chat.
+
 > _"Send Sahil a happy birthday text"_ — fetches contact, drafts the message, opens WhatsApp.
 
 ### 2. Email Draft
+
 LLM-generated subject + body → opens Gmail with a prefilled draft.
+
 > _"Draft a leave email for 5th May, going on a family trip"_ — writes the leave request with reason and regards, resolves recipient from contacts, opens Gmail.
 
 ### 3. Instagram Smart Post
+
 Picks latest gallery image → generates caption + hashtags → opens Instagram via share sheet. Caption is auto-copied to clipboard for pasting.
+
 > _"Post my recent picture on Instagram"_ — selects latest photo, writes caption, opens Instagram for feed or reels.
 
 ### 4. AI Translation
+
 Translates spoken or typed text, displays the result, and reads it aloud via TTS.
+
 > _"How do you say 'excuse me' in Italian?"_ — translates, speaks, and displays the result.
 
 ### 5. Call Contact
+
 Resolves contact name → triggers phone call intent.
+
 > _"Call Ram"_ — fetches contact and starts the call.
 
 ### 6. Events & Reminders
+
 Creates local notifications (Notifee) or calendar events at a scheduled time.
+
 > _"Remind me to drink water"_ — notifies every 4 hours for 24 hours.
 > _"Set a reminder to wish Rohan happy birthday on 11th May"_ — creates calendar event with notification.
 
 ### 7. Voice AI Chat
+
 Ask anything — Drif responds via OpenAI and optionally reads the answer aloud.
+
 > _"What's the weather like?"_ — conversational Q&A with TTS playback.
 
 ### 8. Smart Gallery Search
+
 Navigates the gallery to photos from a specific date.
+
 > _"Show me photos from 24th Feb"_ — opens gallery filtered to that date.
 
 ### 9. Custom Commands
+
 User-defined trigger phrases mapped to multi-step action chains (open app, send message, set timer, play, etc.). Stored locally via MMKV.
+
 > _"Standup brief"_ — opens Calendar, Slack, and Linear in sequence.
 
 ### 10. Multi-step Execution
+
 Compound commands parsed and executed as sequential actions with state carried across steps — same engine that powers Custom Commands.
 
 ---
@@ -115,17 +132,18 @@ UI updates (ChatScreen / HomeScreen response card)
 
 All global state lives in a single Zustand store ([src/store/useAppStore.ts](src/store/useAppStore.ts)).
 
-| Key | Storage | Notes |
-|---|---|---|
-| `apiKey` | Keychain (via `apiKeyStorage`) | Migrates from MMKV on first load |
-| `commands` | MMKV `commands` | Persisted on every upsert/delete/toggle |
-| `messages` | MMKV `messages` | Persisted on every addMessage/clear |
-| `permissions` | MMKV `permissions` | Persisted on toggle |
-| `user.name` | MMKV `user_name` | Persisted on setName |
-| `commandCount` | MMKV `command_count` | Incremented per user message |
-| `theme`, `vizStyle`, `responseStyle`, `language`, `ttsEnabled` | In-memory only | Reset on restart |
+| Key                                                            | Storage                        | Notes                                   |
+| -------------------------------------------------------------- | ------------------------------ | --------------------------------------- |
+| `apiKey`                                                       | Keychain (via `apiKeyStorage`) | Migrates from MMKV on first load        |
+| `commands`                                                     | MMKV `commands`                | Persisted on every upsert/delete/toggle |
+| `messages`                                                     | MMKV `messages`                | Persisted on every addMessage/clear     |
+| `permissions`                                                  | MMKV `permissions`             | Persisted on toggle                     |
+| `user.name`                                                    | MMKV `user_name`               | Persisted on setName                    |
+| `commandCount`                                                 | MMKV `command_count`           | Incremented per user message            |
+| `theme`, `vizStyle`, `responseStyle`, `language`, `ttsEnabled` | In-memory only                 | Reset on restart                        |
 
 API key hydration sequence on app init:
+
 1. Try Keychain first
 2. Fall back to MMKV (legacy)
 3. If found in MMKV, migrate to Keychain and remove from MMKV
@@ -199,6 +217,7 @@ Space:  n × 8px
 ```
 
 MicButton visualizer modes (set per-user in Settings):
+
 - **rings** — 3 expanding/fading concentric rings, staggered 700ms, 2100ms cycle
 - **orb** — 2 overlapping blobs (accent1 + accent2) at different oscillation speeds
 - **bars** — 28 radial bars at equal angles, sequential wave animation

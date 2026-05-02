@@ -1,26 +1,19 @@
 // src/components/Toggle.tsx
-import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, View, StyleSheet } from 'react-native';
+import React from 'react';
+import { Pressable, View, StyleSheet } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { tokens } from '../theme/tokens';
 
-type Props = { value: boolean; onChange: (v: boolean) => void };
+type Props = { value: boolean; onChange: (v: boolean) => void; disabled?: boolean };
 
-export function Toggle({ value, onChange }: Props) {
-  const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.timing(anim, {
-      toValue: value ? 1 : 0,
-      duration: 180,
-      useNativeDriver: false,
-    }).start();
-  }, [value, anim]);
-
-  const left = anim.interpolate({ inputRange: [0, 1], outputRange: [2, 20] });
-
+export const Toggle = React.memo(function Toggle({ value, onChange, disabled = false }: Props) {
   return (
-    <Pressable onPress={() => onChange(!value)} hitSlop={8} style={styles.wrap}>
+    <Pressable
+      onPress={() => onChange(!value)}
+      disabled={disabled}
+      hitSlop={8}
+      style={[styles.wrap, disabled && styles.disabled]}
+    >
       {value ? (
         <LinearGradient
           colors={[tokens.accent1, tokens.accent2]}
@@ -29,12 +22,12 @@ export function Toggle({ value, onChange }: Props) {
           style={StyleSheet.absoluteFill as any}
         />
       ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(120,120,128,0.32)' }]} />
+        <View style={[StyleSheet.absoluteFill, styles.track]} />
       )}
-      <Animated.View style={[styles.knob, { left }]} />
+      <View style={[styles.knob, value ? styles.knobOn : styles.knobOff]} />
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: {
@@ -43,6 +36,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     justifyContent: 'center',
+  },
+  track: {
+    backgroundColor: 'rgba(120,120,128,0.32)',
+  },
+  disabled: {
+    opacity: 0.78,
   },
   knob: {
     position: 'absolute',
@@ -57,4 +56,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
+  knobOff: { left: 2 },
+  knobOn: { left: 20 },
 });

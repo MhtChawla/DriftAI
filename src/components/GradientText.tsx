@@ -11,7 +11,7 @@ type Props = {
   style?: StyleProp<TextStyle>;
 };
 
-export function GradientText({ children, style }: Props) {
+export const GradientText = React.memo(function GradientText({ children, style }: Props) {
   return (
     <MaskedView
       maskElement={
@@ -27,4 +27,4 @@ export function GradientText({ children, style }: Props) {
       </LinearGradient>
     </MaskedView>
   );
-}
+});

@@ -1,12 +1,12 @@
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from 'react-native-mmkv';
 
-const storage = new MMKV({
+const storage = createMMKV({
   id: 'drift-ai-storage',
 });
 
 export const setItem = (key: string, value: any): boolean => {
   try {
-    storage.set(key, typeof value === 'string' ? value : JSON.stringify(value));
+    storage.set(key, JSON.stringify(value));
     return true;
   } catch (error) {
     console.error('MMKV setItem error:', error);
@@ -17,7 +17,15 @@ export const setItem = (key: string, value: any): boolean => {
 export const getItem = <T = any>(key: string): T | null => {
   try {
     const value = storage.getString(key);
-    return value ? JSON.parse(value) : null;
+    if (!value) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value as T;
+    }
   } catch (error) {
     console.error('MMKV getItem error:', error);
     return null;
@@ -26,7 +34,7 @@ export const getItem = <T = any>(key: string): T | null => {
 
 export const removeItem = (key: string): boolean => {
   try {
-    storage.delete(key);
+    storage.remove(key);
     return true;
   } catch (error) {
     console.error('MMKV removeItem error:', error);

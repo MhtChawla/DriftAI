@@ -18,35 +18,39 @@ class SpeechRecognizerModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun startListening(language: String, promise: Promise) {
-        try {
-            if (speechRecognizer == null) {
-                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(reactContext)
-                speechRecognizer!!.setRecognitionListener(this)
-            }
+        reactContext.runOnUiQueueThread {
+            try {
+                if (speechRecognizer == null) {
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(reactContext)
+                    speechRecognizer!!.setRecognitionListener(this)
+                }
 
-            val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(
-                    android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                    android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                )
-                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, language)
-                putExtra(android.speech.RecognizerIntent.EXTRA_CALLING_PACKAGE, reactContext.packageName)
-            }
+                val intent = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(
+                        android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                    )
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, language)
+                    putExtra(android.speech.RecognizerIntent.EXTRA_CALLING_PACKAGE, reactContext.packageName)
+                }
 
-            speechRecognizer!!.startListening(intent)
-            promise.resolve("Listening started")
-        } catch (e: Exception) {
-            promise.reject("SPEECH_RECOGNITION_ERROR", e.message)
+                speechRecognizer!!.startListening(intent)
+                promise.resolve("Listening started")
+            } catch (e: Exception) {
+                promise.reject("SPEECH_RECOGNITION_ERROR", e.message)
+            }
         }
     }
 
     @ReactMethod
     fun stopListening(promise: Promise) {
-        try {
-            speechRecognizer?.stopListening()
-            promise.resolve("Listening stopped")
-        } catch (e: Exception) {
-            promise.reject("SPEECH_RECOGNITION_ERROR", e.message)
+        reactContext.runOnUiQueueThread {
+            try {
+                speechRecognizer?.stopListening()
+                promise.resolve("Listening stopped")
+            } catch (e: Exception) {
+                promise.reject("SPEECH_RECOGNITION_ERROR", e.message)
+            }
         }
     }
 
