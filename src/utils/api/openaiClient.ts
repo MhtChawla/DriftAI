@@ -5,12 +5,25 @@ export interface OpenAIMessage {
   content: string;
 }
 
+export interface OpenAIRequestMessage {
+  role: 'user' | 'assistant' | 'system';
+  content:
+    | string
+    | Array<
+        | { type: 'text'; text: string }
+        | { type: 'image_url'; image_url: { url: string } }
+      >;
+}
+
 export interface ChatCompletionRequest {
-  messages: OpenAIMessage[];
+  messages: OpenAIRequestMessage[];
   model?: string;
   temperature?: number;
   max_tokens?: number;
   top_p?: number;
+  response_format?: {
+    type: 'json_object';
+  };
 }
 
 export interface ChatCompletionResponse {
@@ -32,6 +45,29 @@ export interface ChatCompletionResponse {
 
 const DEFAULT_MODEL = 'gpt-3.5-turbo';
 
+const sanitizeOpenAIErrorMessage = (message: string) =>
+  message.replace(/sk-[A-Za-z0-9_-]+/g, 'sk-***');
+
+const getOpenAIErrorMessage = (error: any) => {
+  const status = error?.response?.status;
+  const apiMessage = error?.response?.data?.error?.message;
+
+  if (status === 401) {
+    return 'OpenAI authentication failed. Update your saved API key in DriftAI.';
+  }
+
+  if (status) {
+    const detail = apiMessage ? `: ${sanitizeOpenAIErrorMessage(apiMessage)}` : '';
+    return `OpenAI request failed (${status})${detail}`;
+  }
+
+  if (error?.message) {
+    return sanitizeOpenAIErrorMessage(error.message);
+  }
+
+  return 'OpenAI request failed';
+};
+
 export const createChatCompletion = async (
   request: ChatCompletionRequest,
   apiKey: string
@@ -45,6 +81,7 @@ export const createChatCompletion = async (
         temperature: request.temperature ?? 0.7,
         max_tokens: request.max_tokens ?? 2048,
         top_p: request.top_p ?? 1,
+        response_format: request.response_format,
       },
       {
         headers: {
@@ -58,7 +95,7 @@ export const createChatCompletion = async (
     if (error.isFromCache) {
       return error.response.data;
     }
-    throw error;
+    throw new Error(getOpenAIErrorMessage(error));
   }
 };
 

@@ -7,12 +7,15 @@ import {
   type BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { Mic, Command, Settings } from 'lucide-react-native';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { CommandsScreen } from '../screens/CommandsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
+import { FeaturesScreen } from '../screens/FeaturesScreen';
 import { useThemeTokens } from '../hooks/useThemeTokens';
 import { tokens, fonts } from '../theme/tokens';
 
@@ -25,27 +28,39 @@ export type TabsParamList = {
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabsParamList>;
   Chat: undefined;
+  PrivacyPolicy: undefined;
+  Features: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<TabsParamList>();
 
-function TabBar({ state, navigation }: BottomTabBarProps) {
+const TAB_ITEMS: {
+  key: keyof TabsParamList;
+  label: string;
+  Icon: React.ComponentType<{ size?: number; color?: string }>;
+}[] = [
+  { key: 'Voice', label: 'Voice', Icon: Mic },
+  { key: 'Commands', label: 'Commands', Icon: Command },
+  { key: 'Settings', label: 'Settings', Icon: Settings },
+];
+
+const TabBar = React.memo(function TabBar({ state, navigation }: BottomTabBarProps) {
   const t = useThemeTokens();
-  const items: { key: keyof TabsParamList; label: string; Icon: React.ComponentType<{ size?: number; color?: string }> }[] = [
-    { key: 'Voice', label: 'Voice', Icon: Mic },
-    { key: 'Commands', label: 'Commands', Icon: Command },
-    { key: 'Settings', label: 'Settings', Icon: Settings },
-  ];
+  const insets = useSafeAreaInsets();
 
   return (
     <View
       style={[
         styles.tabBar,
-        { backgroundColor: t.surface, borderColor: t.border },
+        {
+          backgroundColor: t.surface,
+          borderColor: t.border,
+          bottom: Math.max(22, insets.bottom + 12),
+        },
       ]}
     >
-      {items.map((item, idx) => {
+      {TAB_ITEMS.map((item, idx) => {
         const focused = state.index === idx;
         return (
           <Pressable
@@ -72,7 +87,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
       })}
     </View>
   );
-}
+});
 
 function TabsNavigator() {
   return (
@@ -95,6 +110,16 @@ export function RootNavigator() {
         <Stack.Screen
           name="Chat"
           component={ChatScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="PrivacyPolicy"
+          component={PrivacyPolicyScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="Features"
+          component={FeaturesScreen}
           options={{ animation: 'slide_from_right' }}
         />
       </Stack.Navigator>

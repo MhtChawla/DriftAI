@@ -1,97 +1,121 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+![DriftAI Screenshots](screenshots.png)
 
-# Getting Started
+# Drift AI
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+**Voice-first AI assistant for iOS & Android.**
+Speak naturally — Drift resolves your intent into real actions: send WhatsApp messages, draft emails, set reminders, call contacts, and more. Powered by OpenAI.
 
-## Step 1: Start Metro
+---
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Tech Stack
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+| | |
+|---|---|
+| React Native | 0.85.2 (New Architecture) |
+| React | 19.2.3 |
+| TypeScript | 5.8.3 |
+| State | Zustand |
+| Storage | react-native-mmkv |
+| Navigation | React Navigation v7 |
+| AI | OpenAI (gpt-3.5-turbo) |
+
+---
+
+## Prerequisites
+
+- Node ≥ 22.11.0
+- React Native environment set up: [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment)
+- Android Studio (for Android) or Xcode (for iOS)
+
+---
+
+## Getting Started
+
+### 1. Install dependencies
 
 ```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+npm install
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+### 2. iOS — install CocoaPods
 
 ```sh
 bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
 bundle exec pod install
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+### 3. Start Metro
 
 ```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
+npm start
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+### 4. Run the app
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+```sh
+# Android
+npm run android
 
-## Step 3: Modify your app
+# iOS
+npm run ios
+```
 
-Now that you have successfully run the app, let's make changes!
+---
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+## Project Structure
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+```
+DriftAI/
+├── App.tsx                   # Entry point
+├── src/
+│   ├── screens/              # HomeScreen, ChatScreen, CommandsScreen, SettingsScreen
+│   ├── components/           # MicButton, GradientText, Chip, Toggle, TypingDots
+│   ├── hooks/                # useVoice, useMicCycle, useThemeTokens, useNotifications, ...
+│   ├── store/                # Zustand global store
+│   ├── navigation/           # RootNavigator (stack + floating tab bar)
+│   ├── theme/                # Design tokens (dark / light)
+│   └── utils/                # Axios client, OpenAI client, MMKV storage helpers
+└── android/                  # Native Android STT bridge (SpeechRecognizerModule.kt)
+```
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+---
 
-## Congratulations! :tada:
+## Key Features
 
-You've successfully run and modified your React Native App. :partying_face:
+- **Voice commands** — native Android SpeechRecognizer bridge; iOS planned
+- **Custom commands** — create trigger phrases mapped to actions (WhatsApp, timer, etc.)
+- **Chat history** — full conversation view with typing indicators
+- **Theming** — dark / light mode, accent color, mic visualizer styles (rings / orb / bars)
+- **Settings** — permissions, AI response style, language, profile
 
-### Now what?
+---
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+## Configuration
 
-# Troubleshooting
+Add your OpenAI API key in the app's Settings screen. The key is stored in-memory (MMKV persistence coming soon).
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+---
 
-# Learn More
+## Development Notes
 
-To learn more about React Native, take a look at the following resources:
+| Feature | Status |
+|---|---|
+| Navigation & theming | Complete |
+| Custom commands CRUD | Complete (in-memory) |
+| Mic animations | Complete |
+| Android STT module | Built — not yet wired to HomeScreen |
+| Real OpenAI calls | Not yet wired to screens |
+| iOS voice recognition | Not implemented |
+| API key persistence | Planned (MMKV) |
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+---
+
+## Troubleshooting
+
+See the React Native [Troubleshooting](https://reactnative.dev/docs/troubleshooting) guide for common environment issues.
+
+---
+
+## License
+
+Private — Drift Labs.

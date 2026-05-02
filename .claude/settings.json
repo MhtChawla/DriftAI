@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --input-type=module)",
+      "Bash(node -e ' *)",
+      "Bash(./gradlew app:compileDebugKotlin)",
+      "Read(//Users/mohit-aiemployee/.claude/projects/**)",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs '-I{}' python3 -c ' *)",
+      "Bash(python3 -c \"from PIL import Image; print\\('PIL OK'\\)\")",
+      "Bash(python3 -c \"import cairosvg; print\\('cairosvg OK'\\)\")",
+      "Bash(pip3 install *)",
+      "Bash(python3)",
+      "Bash(adb logcat *)"
+    ]
+  }
+}
